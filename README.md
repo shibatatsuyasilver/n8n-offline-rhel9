@@ -19,6 +19,7 @@
 | n8n | 2.17.7 |
 | Node.js | v22.22.2 |
 | PostgreSQL | 18 (PGDG yum repo) |
+| pgvector | PGDG `pgvector_18` (安裝後在 n8n DB 自動 `CREATE EXTENSION vector`) |
 | 目標 OS | RHEL 9.x x86_64 |
 
 完整 RPM 清單以各 bundle 內的 `rpm-packages.tsv` 為準。
@@ -201,9 +202,9 @@ tzdata, util-linux, util-linux-core, xml-common, xz, xz-libs, zlib
 
 **PostgreSQL 版本**：18（PGDG yum repo，安裝為 18.3-1PGDG.rhel9.7）
 
-#### RPM 套件（167 個，含遞移相依）
+#### RPM 套件（168 個，含遞移相依）
 
-直接安裝（seed，由 `prepare-pg-online.sh` 指定）：`postgresql18-server`, `postgresql18-contrib`, `postgresql18`
+直接安裝（seed，由 `prepare-pg-online.sh` 指定）：`postgresql18-server`, `postgresql18-contrib`, `postgresql18`, `pgvector_18`
 
 完整清單（依字母排序）：
 
@@ -234,8 +235,8 @@ perl-Socket, perl-Storable, perl-Symbol, perl-Term-ANSIColor,
 perl-Term-Cap, perl-Text-ParseWords, perl-Text-Tabs+Wrap, perl-Time-Local,
 perl-URI, perl-base, perl-constant, perl-if, perl-interpreter,
 perl-libnet, perl-libs, perl-mro, perl-overload, perl-overloading,
-perl-parent, perl-podlators, perl-subs, perl-vars, postgresql18,
-postgresql18-contrib, postgresql18-libs, postgresql18-server,
+perl-parent, perl-podlators, perl-subs, perl-vars, pgvector_18,
+postgresql18, postgresql18-contrib, postgresql18-libs, postgresql18-server,
 python-unversioned-command, python3, python3-libs, python3-pip-wheel,
 python3-setuptools-wheel, readline, rocky-gpg-keys, rocky-release,
 rocky-repos, sed, setup, shadow-utils, sqlite-libs, systemd, systemd-libs,
@@ -294,7 +295,7 @@ sudo ./install-pg-offline.sh
 ```
 
 腳本會：
-- 從本地 RPM 倉庫安裝 `postgresql18-server` + `postgresql18-contrib` + `postgresql18`
+- 從本地 RPM 倉庫安裝 `postgresql18-server` + `postgresql18-contrib` + `postgresql18` + `pgvector_18`
 - `postgresql-18-setup initdb` 初始化 datadir
 - `systemctl enable --now postgresql-18`
 
@@ -304,6 +305,7 @@ sudo ./install-pg-offline.sh
 3. `systemctl restart postgresql-18`
 4. `sudo -u postgres psql -c "CREATE ROLE n8n LOGIN PASSWORD '<chosen-password>';"`
 5. `sudo -u postgres createdb --owner=n8n n8n`
+6. `sudo -u postgres psql -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'`
 
 ## 3. 離線 host A：安裝 n8n
 

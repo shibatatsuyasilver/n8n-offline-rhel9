@@ -90,7 +90,8 @@ REPO
   dnf --disablerepo='*' --enablerepo='postgres-offline' install -y --allowerasing \
     "postgresql${PG_MAJOR}-server" \
     "postgresql${PG_MAJOR}-contrib" \
-    "postgresql${PG_MAJOR}"
+    "postgresql${PG_MAJOR}" \
+    "pgvector_${PG_MAJOR}"
 }
 
 initdb_only() {
@@ -158,6 +159,11 @@ bootstrap_n8n_db() {
   fi
 }
 
+enable_pgvector_in_n8n_db() {
+  log "在 n8n DB 啟用 pgvector 擴充 (idempotent)..."
+  su - postgres -c "${PG_BIN}/psql -v ON_ERROR_STOP=1 -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'"
+}
+
 stop_pg_no_systemd() {
   log "停止背景 PG 以便切換為前景模式..."
   su - postgres -c "${PG_BIN}/pg_ctl -D ${PG_DATA} stop -m fast" || true
@@ -188,7 +194,10 @@ print_post_install_hint() {
        sudo -u postgres ${PG_BIN}/psql -c "CREATE ROLE n8n LOGIN PASSWORD '<chosen-password>';"
        sudo -u postgres ${PG_BIN}/createdb --owner=n8n n8n
 
-  5. 在 n8n 主機執行 install-offline.sh 時，提供：
+  5. 在 n8n 資料庫啟用 pgvector：
+       sudo -u postgres ${PG_BIN}/psql -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+
+  6. 在 n8n 主機執行 install-offline.sh 時，提供：
        N8N_DB_HOST=<this_host_ip>
        N8N_DB_PASSWORD=<chosen-password>
 MSG
@@ -210,6 +219,7 @@ main() {
     configure_for_remote
     start_pg_no_systemd_bg
     bootstrap_n8n_db
+    enable_pgvector_in_n8n_db
     stop_pg_no_systemd
     exec_pg_foreground   # 不返回
   fi

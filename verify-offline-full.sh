@@ -110,6 +110,18 @@ run_n8n_install() {
     /bundle/install-offline.sh --verify-no-systemd --bundle-dir /bundle
 }
 
+verify_pgvector() {
+  log "驗證 pgvector 擴充已在 n8n DB 啟用..."
+  if docker exec "$PG_CONTAINER" su - postgres -c \
+      "/usr/pgsql-18/bin/psql -d n8n -tAc \"SELECT extname FROM pg_extension WHERE extname='vector';\"" \
+      | grep -q '^vector$'; then
+    log "pgvector OK"
+  else
+    docker logs --tail 30 "$PG_CONTAINER" >&2
+    die "n8n DB 未啟用 vector 擴充"
+  fi
+}
+
 main() {
   parse_args "$@"
   command -v docker >/dev/null 2>&1 || die "找不到 docker"
@@ -117,6 +129,7 @@ main() {
   create_network
   start_pg_host
   run_n8n_install
-  log "雙 bundle 端到端驗證通過：n8n install + PG install + 跨主機連線。"
+  verify_pgvector
+  log "雙 bundle 端到端驗證通過：n8n install + PG install + pgvector + 跨主機連線。"
 }
 main "$@"

@@ -87,7 +87,8 @@ cd /bundle/rpm-repo
 dnf download --resolve --alldeps \
   "postgresql${PG_MAJOR}-server" \
   "postgresql${PG_MAJOR}-contrib" \
-  "postgresql${PG_MAJOR}"
+  "postgresql${PG_MAJOR}" \
+  "pgvector_${PG_MAJOR}"
 
 createrepo_c .
 
