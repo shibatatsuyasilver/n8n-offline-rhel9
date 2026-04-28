@@ -31,9 +31,25 @@
 - `install-pg-offline.sh` — 自動拷貝進 PG bundle，於離線 RHEL 9 host B 執行
 - `verify-offline.sh` — 在開發機用 `docker network --internal` 起 `postgres:18` + `ubi9` 跨容器跑一次 `install-offline.sh --verify-no-systemd`，端到端驗證
 
-## 1. 連網側：產出兩份 bundle
+## 1. 取得 bundle
 
-需要：本機可用 `docker`（拉 ubi9 / postgres:18 映像，並在容器內 `dnf download` / `npm install`）。
+兩個選項：
+
+### 1a. 直接下載預先建構好的 bundle（離線主機需要 RHEL 9.x / x86_64）
+
+從 [Releases](https://github.com/shibatatsuyasilver/n8n-offline-rhel9/releases) 取得：
+
+```bash
+gh release download v0.1.0 -R shibatatsuyasilver/n8n-offline-rhel9
+tar -xf n8n-offline-rhel9.6-x86_64.tar
+tar -xf postgres-offline-rhel9-x86_64.tar
+```
+
+或用 curl 直接下載 asset URL。SHA-256 在 release notes 內。
+
+### 1b. 自己從原始碼建構
+
+需要：本機可用 `docker`（拉 rockylinux:9 / postgres:18 映像，並在容器內 `dnf download` / `npm install`）。
 
 ```bash
 ./prepare-online.sh        # → dist/n8n-offline-rhel9.6-x86_64/
