@@ -1,74 +1,85 @@
 #!/usr/bin/env bash
-# n8n 離線安裝腳本 (針對 Red Hat 9.x)
-# 在離線 RHEL 9 主機安裝 n8n + Node.js，連線至外部既有的 PostgreSQL。
-# PostgreSQL server 由另一份 bundle (install-pg-offline.sh) 安裝在另一台 RHEL 主機。
+# n8n offline installer for Red Hat 9.x.
+# Installs n8n and Node.js on an offline RHEL 9 host.
+# PostgreSQL is expected to run on another host, installed from the PG bundle.
 #
-# 必填環境變數：
-#   N8N_DB_HOST       外部 PostgreSQL 主機 (IP 或 DNS 名稱)
-#   N8N_DB_PASSWORD   PostgreSQL 上 n8n 角色的密碼
-# 選填環境變數：
-#   N8N_DB_PORT       (預設 5432)
-#   N8N_DB_NAME       (預設 n8n)
-#   N8N_DB_USER       (預設 n8n)
-#   N8N_ENCRYPTION_KEY (未提供則自動產生)
-#   N8N_PORT          (預設 5678，僅綁 127.0.0.1，由 nginx 反代)
-#   GENERIC_TIMEZONE  (預設 Asia/Taipei)
-#   N8N_TLS_HOSTNAME  (預設 hostname -f) self-signed 憑證 CN/SAN 與 N8N_HOST
-#   N8N_TLS_EXTRA_IP  (預設自動偵測主預設路由 IP) 加入 cert SAN
-#   N8N_TLS_DAYS      (預設 3650) self-signed 憑證有效天數
-#   N8N_HTTPS_PORT    (預設 443) nginx 對外監聽埠
+# Required environment variables:
+#   N8N_DB_HOST       External PostgreSQL host, as an IP address or DNS name.
+#   N8N_DB_PASSWORD   Password for the n8n PostgreSQL role.
+# Optional environment variables:
+#   N8N_DB_PORT        Defaults to 5432.
+#   N8N_DB_NAME        Defaults to n8n.
+#   N8N_DB_USER        Defaults to n8n.
+#   N8N_ENCRYPTION_KEY Generated automatically when omitted.
+#   N8N_PORT           Internal n8n port; defaults to 5678 and binds to 127.0.0.1.
+#   GENERIC_TIMEZONE   Defaults to Asia/Taipei.
+#   N8N_TLS_HOSTNAME   Defaults to hostname -f; used for cert CN/SAN and N8N_HOST.
+#   N8N_TLS_EXTRA_IP   Defaults to the primary route IP; added to cert SAN.
+#   N8N_TLS_DAYS       Defaults to 3650.
+#   N8N_HTTPS_PORT     External nginx HTTPS port; defaults to 443.
 
+# Enable strict Bash behavior so failures stop the installer immediately.
 set -Eeuo pipefail
 
+# Resolve the absolute directory that contains this installer.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUNDLE_DIR="$SCRIPT_DIR"
 VERIFY_NO_SYSTEMD=0
 SKIP_SMOKE=0
 
+# Print command-line help.
 usage() {
   cat <<USAGE
-用法: $0 [選項]
+Usage: $0 [options]
 
-選項:
-  --bundle-dir DIR        使用指定的 DIR 作為離線 bundle 目錄。
-  --verify-no-systemd     驗證模式（適用於沒有 systemd 的 Docker 容器）。
-  --skip-smoke            跳過最後的 n8n HTTPS 冒煙測試。
-  -h, --help              顯示此幫助訊息。
+Options:
+  --bundle-dir DIR        Use DIR as the offline bundle directory.
+  --verify-no-systemd     Verification mode for Docker containers without systemd.
+  --skip-smoke            Skip the final n8n HTTPS smoke test.
+  -h, --help              Show this help message.
 USAGE
 }
 
+# Print normal log messages.
 log() { printf '[install-offline] %s\n' "$*"; }
-die() { printf '[install-offline] 錯誤: %s\n' "$*" >&2; exit 1; }
-need_root() { [[ "$(id -u)" == "0" ]] || die "請以 root 權限執行此腳本"; }
-need_command() { command -v "$1" >/dev/null 2>&1 || die "找不到必要的命令: $1"; }
+# Print an error and exit.
+die() { printf '[install-offline] ERROR: %s\n' "$*" >&2; exit 1; }
+# Require root because the installer writes system paths and services.
+need_root() { [[ "$(id -u)" == "0" ]] || die "Run this installer as root"; }
+# Require a command to exist before using it.
+need_command() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 
+# Parse command-line arguments.
 parse_args() {
   while (($#)); do
     case "$1" in
-      --bundle-dir) shift; BUNDLE_DIR="$1" ;;
-      --verify-no-systemd) VERIFY_NO_SYSTEMD=1 ;;
-      --skip-smoke) SKIP_SMOKE=1 ;;
+      --bundle-dir) shift; BUNDLE_DIR="$1" ;; # Set the offline bundle path.
+      --verify-no-systemd) VERIFY_NO_SYSTEMD=1 ;; # Docker verification mode without systemd.
+      --skip-smoke) SKIP_SMOKE=1 ;; # Skip the final smoke test.
       -h|--help) usage; exit 0 ;;
-      *) die "未知選項: $1" ;;
+      *) die "Unknown option: $1" ;;
     esac
     shift
   done
 }
 
+# Validate required database settings and export them for child processes.
 require_db_env() {
-  : "${N8N_DB_HOST:?必須提供 N8N_DB_HOST（外部 PostgreSQL 主機名稱或 IP）}"
-  : "${N8N_DB_PASSWORD:?必須提供 N8N_DB_PASSWORD（外部 PostgreSQL n8n 角色密碼）}"
+  : "${N8N_DB_HOST:?N8N_DB_HOST is required, set it to the external PostgreSQL host name or IP}"
+  : "${N8N_DB_PASSWORD:?N8N_DB_PASSWORD is required for the external PostgreSQL n8n role}"
   N8N_DB_PORT="${N8N_DB_PORT:-5432}"
   N8N_DB_NAME="${N8N_DB_NAME:-n8n}"
   N8N_DB_USER="${N8N_DB_USER:-n8n}"
   export N8N_DB_HOST N8N_DB_PORT N8N_DB_NAME N8N_DB_USER N8N_DB_PASSWORD
 }
 
+# Resolve TLS defaults for hostname, SAN IP, certificate duration, and HTTPS port.
 resolve_tls_env() {
   if [[ -z "${N8N_TLS_HOSTNAME:-}" ]]; then
     N8N_TLS_HOSTNAME="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo localhost)"
   fi
   if [[ -z "${N8N_TLS_EXTRA_IP:-}" ]]; then
+    # Detect the primary route IP and fall back to loopback.
     N8N_TLS_EXTRA_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++)if($i=="src"){print $(i+1);exit}}' || true)"
     [[ -n "$N8N_TLS_EXTRA_IP" ]] || N8N_TLS_EXTRA_IP="127.0.0.1"
   fi
@@ -77,6 +88,7 @@ resolve_tls_env() {
   export N8N_TLS_HOSTNAME N8N_TLS_EXTRA_IP N8N_TLS_DAYS N8N_HTTPS_PORT
 }
 
+# Build the public HTTPS URL used by webhooks and status output.
 public_https_url() {
   if [[ "$N8N_HTTPS_PORT" == "443" ]]; then
     printf 'https://%s/' "$N8N_TLS_HOSTNAME"
@@ -85,42 +97,52 @@ public_https_url() {
   fi
 }
 
+# Load bundle metadata created by prepare-online.sh.
 load_manifest() {
   BUNDLE_DIR="$(cd "$BUNDLE_DIR" && pwd)"
   local manifest="${BUNDLE_DIR}/manifest.env"
-  [[ -f "$manifest" ]] || die "找不到 bundle 清單文件: $manifest"
+  [[ -f "$manifest" ]] || die "Bundle manifest not found: $manifest"
   # shellcheck disable=SC1090
   source "$manifest"
 }
 
+# Check OS, architecture, systemd availability, and bundle integrity before install.
 preflight() {
-  log "正在執行預檢..."
-  [[ -r /etc/os-release ]] || die "無法讀取 /etc/os-release"
+  log "Running preflight checks..."
+  [[ -r /etc/os-release ]] || die "Cannot read /etc/os-release"
   # shellcheck disable=SC1091
   source /etc/os-release
 
+  # Verify that this is a RHEL-family operating system.
   if [[ "${ID:-}" != "$TARGET_OS_ID" && "${ID_LIKE:-}" != *"$TARGET_OS_ID"* ]]; then
-    die "預期作業系統為 RHEL 家族，但目前為 ${ID:-unknown}"
+    die "Expected a RHEL-family operating system, got ${ID:-unknown}"
   fi
-  
-  local major_version="${VERSION_ID%%.*}"
-  [[ "$major_version" == "$TARGET_VERSION_ID" ]] || die "預期 RHEL 主版本為 ${TARGET_VERSION_ID}，但目前為 ${VERSION_ID:-unknown}"
-  [[ "$(uname -m)" == "$TARGET_ARCH" ]] || die "預期架構為 ${TARGET_ARCH}，但目前為 $(uname -m)"
 
+  # Verify the major OS version.
+  local major_version="${VERSION_ID%%.*}"
+  [[ "$major_version" == "$TARGET_VERSION_ID" ]] || die "Expected RHEL major version ${TARGET_VERSION_ID}, got ${VERSION_ID:-unknown}"
+
+  # Verify CPU architecture.
+  [[ "$(uname -m)" == "$TARGET_ARCH" ]] || die "Expected architecture ${TARGET_ARCH}, got $(uname -m)"
+
+  # Production mode requires a running systemd instance.
   if [[ "$VERIFY_NO_SYSTEMD" == "0" ]]; then
     need_command systemctl
-    [[ -d /run/systemd/system ]] || die "systemd 並未在運行中"
+    [[ -d /run/systemd/system ]] || die "systemd is not running"
   fi
 
-  [[ -d "${BUNDLE_DIR}/${RPM_REPO_DIR}" ]] || die "找不到 rpm 倉庫目錄"
-  log "正在驗證 bundle 檔案校驗碼..."
+  # Verify the local RPM repository and all bundle checksums.
+  [[ -d "${BUNDLE_DIR}/${RPM_REPO_DIR}" ]] || die "RPM repository directory not found"
+  log "Verifying bundle checksums..."
   ( cd "$BUNDLE_DIR"; sha256sum -c SHA256SUMS )
 }
 
+# Install required RPM packages from the local offline repository.
 install_rpm_packages() {
-  log "正在從本地離線倉庫安裝 rpm 軟體包..."
+  log "Installing RPM packages from the local offline repository..."
 
   local repo_file="/etc/yum.repos.d/n8n-offline.repo"
+  # Write a yum repository file that points only at the local bundle.
   cat > "$repo_file" <<REPO
 [n8n-offline]
 name=n8n Offline Packages
@@ -129,12 +151,14 @@ enabled=1
 gpgcheck=0
 REPO
 
+  # Read the package seed list from the manifest and install offline.
   read -r -a seed_packages <<< "$DNF_SEED_PACKAGES"
   dnf --disablerepo="*" --enablerepo="n8n-offline" install -y --allowerasing "${seed_packages[@]}"
 }
 
+# Extract Node.js under /opt and expose global executables through /usr/local/bin.
 install_node() {
-  log "正在安裝 Node.js ${NODE_VERSION}..."
+  log "Installing Node.js ${NODE_VERSION}..."
   local node_prefix="/opt/${NODE_DIST}"
   rm -rf "$node_prefix"
   tar -xJf "${BUNDLE_DIR}/${NODE_TARBALL}" -C /opt
@@ -144,30 +168,36 @@ install_node() {
   ln -sfn "${node_prefix}/bin/npx" /usr/local/bin/npx
 }
 
+# Extract the prebuilt n8n prefix under /opt/n8n.
 install_n8n() {
-  log "正在安裝 n8n ${N8N_VERSION}..."
+  log "Installing n8n ${N8N_VERSION}..."
   rm -rf /opt/n8n
   tar -xJf "${BUNDLE_DIR}/${N8N_PREFIX_TARBALL}" -C /opt
   ln -sfn /opt/n8n/bin/n8n /usr/local/bin/n8n
 }
 
+# Create the n8n system user and the required data, log, and config directories.
 create_user_and_dirs() {
-  log "正在建立 n8n 用戶與相關目錄..."
+  log "Creating n8n user and directories..."
   if ! getent group n8n >/dev/null; then groupadd --system n8n; fi
   if ! id n8n >/dev/null 2>&1; then useradd --system --gid n8n --home-dir /var/lib/n8n --shell /usr/sbin/nologin n8n; fi
+
   install -d -o n8n -g n8n -m 0750 /var/lib/n8n
   install -d -o n8n -g n8n -m 0750 /var/log/n8n
   install -d -o root -g root -m 0750 /etc/n8n
   chown -R n8n:n8n /var/lib/n8n /var/log/n8n
 }
 
+# Generate a random hexadecimal secret.
 generate_secret_hex() { openssl rand -hex "$1"; }
 
+# Write the n8n environment file, including database settings and secrets.
 write_env_file() {
-  log "正在寫入 /etc/n8n/n8n.env..."
+  log "Writing /etc/n8n/n8n.env..."
   local env_file="/etc/n8n/n8n.env"
   local webhook_url
 
+  # Generate N8N_ENCRYPTION_KEY when the caller did not provide one.
   N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY:-$(generate_secret_hex 32)}"
   N8N_PORT="${N8N_PORT:-5678}"
   GENERIC_TIMEZONE="${GENERIC_TIMEZONE:-Asia/Taipei}"
@@ -197,9 +227,11 @@ DB_POSTGRESDB_USER=${N8N_DB_USER}
 DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
 DB_POSTGRESDB_SCHEMA=public
 ENV
+  # Restrict ownership and permissions for the environment file.
   chown root:n8n "$env_file"; chmod 640 "$env_file"
 }
 
+# Generate a self-signed TLS certificate for the nginx HTTPS reverse proxy.
 generate_self_signed_cert() {
   local tls_dir=/etc/n8n/tls
   local key_file="$tls_dir/server.key"
@@ -207,10 +239,11 @@ generate_self_signed_cert() {
 
   install -d -o root -g root -m 0750 "$tls_dir"
   if [[ -s "$key_file" && -s "$crt_file" ]]; then
-    log "self-signed 憑證已存在，跳過產生 (${crt_file})"
+    log "Self-signed certificate already exists, skipping generation (${crt_file})"
   else
-    log "產生 self-signed 憑證 CN=${N8N_TLS_HOSTNAME} SAN=DNS:${N8N_TLS_HOSTNAME},IP:${N8N_TLS_EXTRA_IP} (${N8N_TLS_DAYS} 天)..."
+    log "Generating self-signed certificate CN=${N8N_TLS_HOSTNAME} SAN=DNS:${N8N_TLS_HOSTNAME},IP:${N8N_TLS_EXTRA_IP} (${N8N_TLS_DAYS} days)..."
     umask 077
+    # Generate an ECDSA P-256 self-signed certificate.
     openssl req -x509 -nodes \
       -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
       -keyout "${key_file}.tmp" \
@@ -223,6 +256,7 @@ generate_self_signed_cert() {
     mv "${crt_file}.tmp" "$crt_file"
   fi
 
+  # Ensure the nginx user can read the certificate and key.
   if getent group nginx >/dev/null; then
     chown root:nginx "$key_file" "$crt_file"
   else
@@ -231,9 +265,11 @@ generate_self_signed_cert() {
   chmod 0640 "$key_file" "$crt_file"
 }
 
+# Write nginx main config and the n8n HTTPS reverse proxy site config.
 write_nginx_config() {
-  log "寫入 nginx 反向代理設定..."
+  log "Writing nginx reverse proxy configuration..."
 
+  # Replace the main nginx config with a minimal offline-stack config.
   cat > /etc/nginx/nginx.conf <<'NGINXCONF'
 user nginx;
 worker_processes auto;
@@ -267,6 +303,7 @@ http {
 }
 NGINXCONF
 
+  # Write the n8n reverse proxy site.
   cat > /etc/nginx/conf.d/n8n.conf <<NGINXSITE
 server {
     listen ${N8N_HTTPS_PORT} ssl http2;
@@ -285,6 +322,7 @@ server {
     proxy_read_timeout   3600s;
     proxy_send_timeout   3600s;
 
+    # Proxy all traffic to the local n8n listener.
     location / {
         proxy_pass http://127.0.0.1:${N8N_PORT};
         proxy_http_version 1.1;
@@ -300,31 +338,36 @@ server {
 NGINXSITE
 }
 
+# Validate nginx configuration syntax before enabling services.
 test_nginx_config() {
-  log "驗證 nginx 設定..."
+  log "Validating nginx configuration..."
   /usr/sbin/nginx -t
 }
 
+# Configure SELinux and firewalld when they are present and active.
 configure_host_for_nginx() {
   [[ "$VERIFY_NO_SYSTEMD" == "0" ]] || return 0
 
+  # Allow nginx/httpd services to open outbound connections for reverse proxying.
   if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
     if command -v setsebool >/dev/null 2>&1; then
-      log "設定 SELinux: httpd_can_network_connect=on"
-      setsebool -P httpd_can_network_connect 1 || log "warning: setsebool 失敗，可能需手動處理"
+      log "Setting SELinux boolean: httpd_can_network_connect=on"
+      setsebool -P httpd_can_network_connect 1 || log "warning: setsebool failed, manual SELinux handling may be required"
     fi
   fi
 
+  # Open the configured HTTPS port in firewalld.
   if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-    log "firewalld: 開放 ${N8N_HTTPS_PORT}/tcp"
+    log "firewalld: opening ${N8N_HTTPS_PORT}/tcp"
     firewall-cmd --permanent --add-port="${N8N_HTTPS_PORT}/tcp" >/dev/null
     firewall-cmd --reload >/dev/null
   fi
 }
 
+# Create and enable the n8n systemd service.
 install_systemd_service() {
   [[ "$VERIFY_NO_SYSTEMD" == "0" ]] || return 0
-  log "正在安裝 n8n systemd 服務..."
+  log "Installing n8n systemd service..."
 
   cat > /etc/systemd/system/n8n.service <<'UNIT'
 [Unit]
@@ -350,13 +393,15 @@ StandardError=append:/var/log/n8n/n8n.err
 WantedBy=multi-user.target
 UNIT
 
+  # Reload systemd and enable both n8n and nginx at boot.
   systemctl daemon-reload
   systemctl enable --now nginx
   systemctl enable --now n8n
 }
 
+# Verify external PostgreSQL connectivity through n8n's bundled pg library.
 verify_pg_connection() {
-  log "正在驗證對外部 PostgreSQL (${N8N_DB_HOST}:${N8N_DB_PORT}) 的連線..."
+  log "Verifying external PostgreSQL connectivity (${N8N_DB_HOST}:${N8N_DB_PORT})..."
   ( cd /opt/n8n/lib/node_modules/n8n && \
     DB_POSTGRESDB_HOST="$N8N_DB_HOST" \
     DB_POSTGRESDB_PORT="$N8N_DB_PORT" \
@@ -374,48 +419,62 @@ verify_pg_connection() {
       });
       c.connect()
         .then(() => c.query("SELECT 1"))
-        .then(() => console.log("PG 連線 OK"))
-        .catch(e => { console.error("PG 連線失敗:", e.message); process.exit(1); })
+        .then(() => console.log("PG connection OK"))
+        .catch(e => { console.error("PG connection failed:", e.message); process.exit(1); })
         .finally(() => c.end());
     '
   )
 }
 
+# Wait until nginx proxies the n8n /healthz endpoint successfully.
 wait_for_https() {
-  log "正在等待 https://127.0.0.1:${N8N_HTTPS_PORT}/healthz (透過 nginx 反代到 n8n:${N8N_PORT})..."
+  log "Waiting for https://127.0.0.1:${N8N_HTTPS_PORT}/healthz via nginx to n8n:${N8N_PORT}..."
+  # Try up to 90 times, about 180 seconds total.
   for _ in $(seq 1 90); do
     if curl -kfsS --max-time 2 "https://127.0.0.1:${N8N_HTTPS_PORT}/healthz" >/dev/null 2>&1; then return 0; fi
     sleep 2
   done
-  die "n8n / nginx 未能在時間內響應 HTTPS。"
+  die "n8n/nginx did not respond over HTTPS in time"
 }
 
+# Production smoke test for systemd-managed n8n and nginx.
 systemd_smoke_test() {
   [[ "$SKIP_SMOKE" == "0" ]] || return 0
-  log "正在執行 n8n 冒煙測試 (systemd)..."
+  log "Running n8n smoke test under systemd..."
   wait_for_https
   systemctl is-active --quiet n8n
   systemctl is-active --quiet nginx
 }
 
+# Docker verification smoke test without systemd.
 verify_no_systemd_smoke_test() {
   [[ "$SKIP_SMOKE" == "0" ]] || return 0
-  log "正在執行 n8n + nginx 冒煙測試 (背景啟動，無 systemd)..."
+  log "Running n8n + nginx smoke test without systemd..."
   install -d -o n8n -g n8n -m 0750 /var/log/n8n
   install -d -o root -g root -m 0755 /var/log/nginx
+
+  # Load the generated environment and run n8n in the background.
   set -a; source /etc/n8n/n8n.env; set +a
   su -s /bin/bash n8n -c '/usr/local/bin/n8n start' \
     >/var/log/n8n/n8n.log 2>/var/log/n8n/n8n.err &
   local n8n_pid=$!
+
   test_nginx_config
+  # Start nginx.
   /usr/sbin/nginx
+
+  # Cleanly stop both processes when the script exits.
   trap "kill ${n8n_pid} >/dev/null 2>&1 || true; /usr/sbin/nginx -s quit >/dev/null 2>&1 || true" EXIT
+
   wait_for_https
+
+  # Stop background processes after a successful smoke test.
   /usr/sbin/nginx -s quit >/dev/null 2>&1 || true
   kill "${n8n_pid}" >/dev/null 2>&1 || true
   trap - EXIT
 }
 
+# Main installer entry point.
 main() {
   parse_args "$@"
   need_root
@@ -443,6 +502,6 @@ main() {
     verify_no_systemd_smoke_test
   fi
 
-  log "安裝完成。n8n 已配置於 $(public_https_url) (self-signed, 瀏覽器首次會出現憑證警告)"
+  log "Install complete. n8n is available at $(public_https_url) with a self-signed certificate."
 }
 main "$@"

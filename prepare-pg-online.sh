@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# PostgreSQL 18 離線 bundle 準備腳本 (針對 Red Hat 9.x)
-# 在具備網路的主機上以 ubi9 容器加載 PGDG 倉庫，下載 postgresql18-server / contrib
-# 與其全部 RPM 依賴，產出可拷貝至離線 RHEL 9 主機的 bundle 目錄。
+# PostgreSQL 18 offline bundle preparation script for Red Hat 9.x.
+# Run this script on an online host to download PostgreSQL server, contrib,
+# pgvector, and all RPM dependencies into a portable offline bundle.
 
 set -Eeuo pipefail
 
@@ -12,7 +12,8 @@ BUNDLE_NAME="postgres-offline-rhel9-x86_64"
 DIST_ROOT="${DIST_ROOT:-${SCRIPT_DIR}/dist}"
 BUNDLE_DIR="${BUNDLE_DIR:-${DIST_ROOT}/${BUNDLE_NAME}}"
 
-# 用 Rocky Linux 9 (RHEL 9 二進位相容)；UBI9 的 CRB 是精簡版不含 createrepo_c。
+# Use Rocky Linux 9 because it is binary compatible with RHEL 9 and includes
+# createrepo_c without requiring a RHEL subscription.
 RHEL_IMAGE="rockylinux:9"
 DOCKER_PLATFORM="linux/amd64"
 
@@ -20,20 +21,20 @@ KEEP_EXISTING=0
 
 usage() {
   cat <<USAGE
-用法: $0 [選項]
+Usage: $0 [options]
 
-選項:
-  --bundle-dir DIR   將生成的 bundle 寫入指定目錄
-  --keep-existing    保留現有的 bundle 目錄，不刪除後重建
-  -h, --help         顯示此幫助訊息
+Options:
+  --bundle-dir DIR   Write the generated bundle to DIR.
+  --keep-existing    Keep the existing bundle directory instead of rebuilding it.
+  -h, --help         Show this help message.
 
-環境變數:
-  PG_MAJOR           PostgreSQL 主版本 (預設 18)
+Environment variables:
+  PG_MAJOR           PostgreSQL major version. Defaults to 18.
 USAGE
 }
 
 log() { printf '[prepare-pg-online] %s\n' "$*"; }
-die() { printf '[prepare-pg-online] 錯誤: %s\n' "$*" >&2; exit 1; }
+die() { printf '[prepare-pg-online] ERROR: %s\n' "$*" >&2; exit 1; }
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
@@ -50,7 +51,7 @@ parse_args() {
       --bundle-dir) shift; BUNDLE_DIR="$1" ;;
       --keep-existing) KEEP_EXISTING=1 ;;
       -h|--help) usage; exit 0 ;;
-      *) die "未知選項: $1" ;;
+      *) die "Unknown option: $1" ;;
     esac
     shift
   done
@@ -69,7 +70,7 @@ prepare_bundle_dir() {
 }
 
 build_dnf_repo() {
-  log "在 ubi9 容器內下載 PostgreSQL ${PG_MAJOR} 與依賴 RPM..."
+  log "Downloading PostgreSQL ${PG_MAJOR} and dependency RPMs in a ubi9-compatible container..."
   docker run --rm -i --platform "$DOCKER_PLATFORM" \
     -v "${BUNDLE_DIR}:/bundle" \
     -e PG_MAJOR="$PG_MAJOR" \
@@ -124,7 +125,7 @@ MANIFEST
 }
 
 write_checksums() {
-  log "生成 SHA256SUMS..."
+  log "Generating SHA256SUMS..."
   local tmp_file="${BUNDLE_DIR}/SHA256SUMS.tmp"
   ( cd "$BUNDLE_DIR"
     while IFS= read -r file; do write_sha256_line "$file"; done < <(find . -type f ! -name SHA256SUMS ! -name SHA256SUMS.tmp -print | sed 's#^\./##' | LC_ALL=C sort)
@@ -133,8 +134,8 @@ write_checksums() {
 }
 
 verify_bundle_files() {
-  log "驗證 bundle 檔案..."
-  [[ -s "${BUNDLE_DIR}/rpm-repo/repodata/repomd.xml" ]] || die "缺少 repodata"
+  log "Verifying bundle files..."
+  [[ -s "${BUNDLE_DIR}/rpm-repo/repodata/repomd.xml" ]] || die "Missing repodata"
   ( cd "$BUNDLE_DIR"
     if command -v sha256sum >/dev/null 2>&1; then sha256sum -c SHA256SUMS
     else shasum -a 256 -c SHA256SUMS; fi )
@@ -142,13 +143,13 @@ verify_bundle_files() {
 
 main() {
   parse_args "$@"
-  command -v docker >/dev/null 2>&1 || die "找不到 docker"
-  [[ -f "${SCRIPT_DIR}/install-pg-offline.sh" ]] || die "找不到 install-pg-offline.sh"
+  command -v docker >/dev/null 2>&1 || die "docker not found"
+  [[ -f "${SCRIPT_DIR}/install-pg-offline.sh" ]] || die "install-pg-offline.sh not found"
   prepare_bundle_dir
   build_dnf_repo
   write_manifest
   write_checksums
   verify_bundle_files
-  log "完成: ${BUNDLE_DIR}"
+  log "Done: ${BUNDLE_DIR}"
 }
 main "$@"
