@@ -3,11 +3,11 @@
 兩台離線 RHEL 9 主機的安裝方案：
 
 ```
-┌──────────────────────────┐         ┌──────────────────────────────┐
-│  RHEL host A — n8n       │ ──────▶ │  RHEL host B — PostgreSQL 18 │
-│  systemd / n8n.service   │  5432   │  systemd / postgresql-18     │
-│  /etc/n8n/n8n.env        │         │  /var/lib/pgsql/18/data      │
-└──────────────────────────┘         └──────────────────────────────┘
+┌──────────────────────────────┐       ┌──────────────────────────────┐
+│  RHEL host A — nginx + n8n   │ ────▶ │  RHEL host B — PostgreSQL 18 │
+│  HTTPS 443 → 127.0.0.1:5678  │ 5432  │  systemd / postgresql-18     │
+│  /etc/n8n/n8n.env + tls cert │       │  /var/lib/pgsql/18/data      │
+└──────────────────────────────┘       └──────────────────────────────┘
 ```
 
 兩台主機各自從一份獨立的離線 bundle 安裝；n8n 主機透過 `n8n.env` 內的 `DB_POSTGRESDB_*` 連到 PG 主機。安裝腳本不會跨主機操作，也不會自動建立 n8n 角色 / 資料庫，由管理員依照 `install-pg-offline.sh` 結束後的提示手動完成。
@@ -34,11 +34,11 @@
 
 - Node.js v22.22.2 — 來源 tarball `node-v22.22.2-linux-x64.tar.xz`
 
-#### RPM 套件（198 個，含遞移相依）
+#### RPM 套件（241 個，含遞移相依）
 
-直接安裝（seed，由 `prepare-online.sh` 指定）：`ca-certificates`, `tzdata`, `curl`, `openssl`, `git`, `GraphicsMagick`, `fontconfig`, `xz`
+直接安裝（seed，由 `prepare-online.sh` 指定）：`ca-certificates`, `tzdata`, `curl`, `openssl`, `git`, `GraphicsMagick`, `fontconfig`, `xz`, `nginx`
 
-完整清單（依字母排序）：
+摘要清單（依字母排序；完整清單以 bundle 內 `rpm-packages.tsv` 為準）：
 
 ```
 GraphicsMagick, alternatives, audit-libs, basesystem, bash, bzip2-libs,
@@ -57,8 +57,8 @@ libmount, libnghttp2, libpng, libpsl, libpwquality, libselinux,
 libsemanage, libsepol, libsigsegv, libsmartcols, libssh, libssh-config,
 libstdc++, libtasn1, libtiff, libtool-ltdl, libunistring, libutempter,
 libuuid, libverto, libwebp, libwmf-lite, libxcb, libxcrypt, libxml2,
-libzstd, lz4-libs, mpfr, ncurses, ncurses-base, ncurses-libs, nettle,
-openldap, openssh, openssh-clients, openssl, openssl-fips-provider,
+libzstd, logrotate, lz4-libs, mpfr, ncurses, ncurses-base, ncurses-libs,
+nettle, nginx, nginx-core, nginx-filesystem, openldap, openssh, openssh-clients, openssl, openssl-fips-provider,
 openssl-libs, p11-kit, p11-kit-trust, pam, pcre, pcre2, pcre2-syntax,
 perl-AutoLoader, perl-B, perl-Carp, perl-Class-Struct, perl-Data-Dumper,
 perl-Digest, perl-Digest-MD5, perl-DynaLoader, perl-Encode, perl-Errno,
@@ -74,9 +74,10 @@ perl-TermReadKey, perl-Text-ParseWords, perl-Text-Tabs+Wrap,
 perl-Time-Local, perl-URI, perl-base, perl-constant, perl-if,
 perl-interpreter, perl-lib, perl-libnet, perl-libs, perl-mro,
 perl-overload, perl-overloading, perl-parent, perl-podlators, perl-subs,
-perl-vars, publicsuffix-list-dafsa, readline, rocky-gpg-keys,
-rocky-release, rocky-repos, sed, setup, shadow-utils, systemd-libs,
-tzdata, util-linux, util-linux-core, xml-common, xz, xz-libs, zlib
+perl-vars, popt, publicsuffix-list-dafsa, readline, rocky-gpg-keys,
+rocky-logos-httpd, rocky-release, rocky-repos, sed, setup, shadow-utils,
+systemd, systemd-libs, systemd-pam, systemd-rpm-macros, tzdata, util-linux,
+util-linux-core, xml-common, xz, xz-libs, zlib
 ```
 
 #### npm 套件（n8n@2.17.7 的 114 個 top-level 直接相依）
@@ -333,12 +334,21 @@ sudo N8N_DB_HOST='<host_b_ip>' \
 | `N8N_DB_NAME` | `n8n` |
 | `N8N_DB_USER` | `n8n` |
 | `N8N_ENCRYPTION_KEY` | 自動產生 64 字元 hex |
-| `N8N_PORT` | `5678` |
+| `N8N_PORT` | `5678`（僅綁 127.0.0.1，由 nginx 反代） |
 | `GENERIC_TIMEZONE` | `Asia/Taipei` |
+| `N8N_TLS_HOSTNAME` | `hostname -f`（寫入 self-signed cert CN/SAN 與 `N8N_HOST`） |
+| `N8N_TLS_EXTRA_IP` | 自動偵測主預設路由 IP（加進 cert SAN） |
+| `N8N_TLS_DAYS` | `3650` |
+| `N8N_HTTPS_PORT` | `443` |
 
-腳本流程：預檢 → 從本地 RPM 倉庫裝系統套件 → 解壓 Node.js → 解壓 n8n prefix → 寫 `/etc/n8n/n8n.env` → **用 bundle 內附的 `pg` 模組驗證對 host B 的連線** → 安裝 systemd unit → `systemctl enable --now n8n` → `curl /healthz` 冒煙測試。
+腳本流程：預檢 → 從本地 RPM 倉庫裝系統套件（含 nginx） → 解壓 Node.js → 解壓 n8n prefix → 寫 `/etc/n8n/n8n.env` → **用 bundle 內附的 `pg` 模組驗證對 host B 的連線** → 產生 self-signed 憑證 (`/etc/n8n/tls/server.{crt,key}`) → 寫 nginx 反代設定 (`/etc/nginx/conf.d/n8n.conf`) → `nginx -t` → 設定 SELinux (`httpd_can_network_connect`) + firewalld (開 `N8N_HTTPS_PORT`) → 安裝 systemd unit → `systemctl enable --now nginx n8n` → `curl -k https://127.0.0.1:${N8N_HTTPS_PORT}/healthz` 冒煙測試。
 
-完成後 n8n 監聽在 `http://0.0.0.0:5678`。
+完成後 n8n 在 `https://<host>/` 上線；若 `N8N_HTTPS_PORT` 不是 `443`，入口與 `WEBHOOK_URL` 會是 `https://<host>:<port>/`。nginx 會反代到內部 `127.0.0.1:5678`。
+
+> **第一次連線會出現瀏覽器憑證警告**，因為是 self-signed。可選：
+> - 直接在瀏覽器點「進階 → 仍要前往」（最快，內網用）
+> - 把 `/etc/n8n/tls/server.crt` 加進客戶端的信任鏈（避免每次警告）
+> - 想換成自家 CA 簽的證書，直接覆寫 `/etc/n8n/tls/server.{crt,key}` 後 `systemctl reload nginx` 即可。
 
 ## 4. 在開發機跨容器模擬驗證
 
@@ -367,13 +377,76 @@ sudo N8N_DB_HOST='<host_b_ip>' \
 如果想直接在開發機（macOS / Linux）跑起來試用 n8n 而不用真正的 RHEL 主機：
 
 ```bash
-./run-stack.sh up        # 起 n8n + PG 兩個容器，n8n 公開到 :5678
+./run-stack.sh up        # 起 n8n + PG 兩個容器，HTTPS 公開到 :8443
 ./run-stack.sh status    # 看狀態
 ./run-stack.sh logs      # 跟 n8n log
 ./run-stack.sh down      # 停止 (volume 留著)
 ./run-stack.sh destroy   # 清空 (含 docker volume)
 ```
 
-啟動後開瀏覽器到 `http://localhost:5678`。憑證 (`PG_PASSWORD`、`N8N_ENCRYPTION_KEY`) 寫在 `.stack-env`，重啟容器資料延續。
+啟動後開瀏覽器到 `https://localhost:8443`，第一次會看到 self-signed 憑證警告。要改宿主機 HTTPS port 可設定 `N8N_HOST_HTTPS_PORT`；舊的 `N8N_HOST_PORT` 仍可作為 fallback。憑證 (`PG_PASSWORD`、`N8N_ENCRYPTION_KEY`) 寫在 `.stack-env`，重啟容器資料延續。
+
+n8n 容器內會跑同一份 `install-offline.sh`，所以裡面也是 nginx (TLS) → `127.0.0.1:5678` 的反代結構，跟第 3 節 RHEL 部署是同一份配置（差別只在沒 systemd，nginx 與 n8n 由容器入口腳本各自背景啟動，見 `run-stack.sh`）。反代細節見第 6 節。
 
 > **注意**：`.stack-env` 含密鑰與密碼，已在 `.gitignore`。若要分享環境，請各自產生新檔，不要把 `.stack-env` 推上版控。
+
+## 6. 反向代理架構
+
+整個 stack 的對外入口都是 nginx；n8n 本身只在 `127.0.0.1:5678`（`N8N_PORT`）監聽，外部無法直連。
+
+```
+┌─ 瀏覽器 / webhook caller
+│   https://<host>:<N8N_HTTPS_PORT>
+▼
+┌─────────────────────────────┐
+│  nginx (TLS 在這裡終結)      │   /etc/nginx/conf.d/n8n.conf
+│  listen :443 ssl http2      │   /etc/n8n/tls/server.{crt,key}
+└──────────────┬──────────────┘
+               │  proxy_pass http://127.0.0.1:5678
+               ▼
+┌─────────────────────────────┐
+│  n8n (僅綁 127.0.0.1)        │   /etc/n8n/n8n.env
+│  N8N_PORT=5678              │   N8N_HOST / WEBHOOK_URL
+└─────────────────────────────┘
+```
+
+RHEL 部署（第 3 節）與 Docker stack（第 5 節）用的是**同一份** `install-offline.sh` 寫出來的 nginx 配置，差別只在 systemd vs. 容器入口腳本啟動。
+
+**為什麼不讓 n8n 直接 listen 443**：
+
+- n8n 以非 root user (`n8n`) 執行，特權埠交給 nginx 處理
+- TLS、headers、上傳上限、長連線超時都集中在反代層
+- 換證書（包含改成自家 CA 簽的）只要 reload nginx，不用重啟 n8n
+
+### 關鍵 nginx 設定（出處 `install-offline.sh` `write_nginx_config`）
+
+| 設定 | 值 | 為什麼需要 |
+|---|---|---|
+| `listen ${N8N_HTTPS_PORT} ssl http2` | 預設 443 | 對外 HTTPS 入口，由 `N8N_HTTPS_PORT` 控制 |
+| `proxy_pass http://127.0.0.1:${N8N_PORT}` | 預設 5678 | n8n 不公開到外網，只能經反代進入 |
+| `proxy_http_version 1.1` + `Upgrade` / `Connection` headers | — | n8n editor 與 webhook 用 WebSocket，沒升級會斷線 |
+| `client_max_body_size 100M` | — | 上傳檔 / 大 payload 不被擋 |
+| `proxy_read_timeout` / `proxy_send_timeout` | `3600s` | 長執行 workflow / SSE 不會被反代切掉 |
+| `Host` / `X-Forwarded-Host` | `$http_host`（**不是 `$host`**） | 保留原始 `Host`（含 port）。n8n push / chat WebSocket 會驗證 `Origin`，預期 host 從這兩個 header 推算；用 `$host` 會被 nginx 去掉 port，導致 `localhost:8443` ≠ `localhost` 而被拒絕 |
+| `X-Forwarded-Proto https` | — | n8n 才知道對外是 HTTPS，產生的回呼 URL 才會是 `https://...` |
+| `X-Forwarded-For` / `X-Real-IP` | — | n8n 看到真實來源 IP（log、rate limit） |
+| `ssl_certificate` | `/etc/n8n/tls/server.{crt,key}` | self-signed，可直接覆寫換成自家 CA 簽的 |
+| `ssl_protocols` | `TLSv1.2 TLSv1.3` | 不接受更舊的協定 |
+
+### `N8N_HOST` / `WEBHOOK_URL` 與反代的關係
+
+`install-offline.sh` 寫到 `/etc/n8n/n8n.env`：
+
+- `N8N_HOST=${N8N_TLS_HOSTNAME}` — n8n 知道自己「對外的 hostname」
+- `WEBHOOK_URL=https://<hostname>:<port>/` — 外部 webhook 呼叫的完整 URL，**必須與 nginx 對外監聽一致**（同一個 hostname、同一個 `N8N_HTTPS_PORT`）
+
+如果之後改 `N8N_HTTPS_PORT`、換證書 hostname、或把服務搬到別的網域名後面，記得同步這兩個變數，不然 webhook callback URL 會指錯地方。
+
+### 換成自家 CA 簽的證書
+
+直接覆寫 `/etc/n8n/tls/server.crt` 與 `/etc/n8n/tls/server.key`，然後 reload nginx：
+
+- RHEL 部署：`systemctl reload nginx`
+- Docker stack：`docker exec n8n-stack-n8n nginx -s reload`
+
+n8n 不用重啟。

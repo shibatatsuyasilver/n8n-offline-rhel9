@@ -35,6 +35,7 @@ DNF_SEED_PACKAGES=(
   GraphicsMagick
   fontconfig
   xz
+  nginx
 )
 
 VERIFY_OFFLINE=1

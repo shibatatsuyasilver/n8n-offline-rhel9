@@ -11,8 +11,12 @@
 #   N8N_DB_NAME       (預設 n8n)
 #   N8N_DB_USER       (預設 n8n)
 #   N8N_ENCRYPTION_KEY (未提供則自動產生)
-#   N8N_PORT          (預設 5678)
+#   N8N_PORT          (預設 5678，僅綁 127.0.0.1，由 nginx 反代)
 #   GENERIC_TIMEZONE  (預設 Asia/Taipei)
+#   N8N_TLS_HOSTNAME  (預設 hostname -f) self-signed 憑證 CN/SAN 與 N8N_HOST
+#   N8N_TLS_EXTRA_IP  (預設自動偵測主預設路由 IP) 加入 cert SAN
+#   N8N_TLS_DAYS      (預設 3650) self-signed 憑證有效天數
+#   N8N_HTTPS_PORT    (預設 443) nginx 對外監聽埠
 
 set -Eeuo pipefail
 
@@ -28,7 +32,7 @@ usage() {
 選項:
   --bundle-dir DIR        使用指定的 DIR 作為離線 bundle 目錄。
   --verify-no-systemd     驗證模式（適用於沒有 systemd 的 Docker 容器）。
-  --skip-smoke            跳過最後的 n8n HTTP 冒煙測試。
+  --skip-smoke            跳過最後的 n8n HTTPS 冒煙測試。
   -h, --help              顯示此幫助訊息。
 USAGE
 }
@@ -58,6 +62,27 @@ require_db_env() {
   N8N_DB_NAME="${N8N_DB_NAME:-n8n}"
   N8N_DB_USER="${N8N_DB_USER:-n8n}"
   export N8N_DB_HOST N8N_DB_PORT N8N_DB_NAME N8N_DB_USER N8N_DB_PASSWORD
+}
+
+resolve_tls_env() {
+  if [[ -z "${N8N_TLS_HOSTNAME:-}" ]]; then
+    N8N_TLS_HOSTNAME="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo localhost)"
+  fi
+  if [[ -z "${N8N_TLS_EXTRA_IP:-}" ]]; then
+    N8N_TLS_EXTRA_IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++)if($i=="src"){print $(i+1);exit}}' || true)"
+    [[ -n "$N8N_TLS_EXTRA_IP" ]] || N8N_TLS_EXTRA_IP="127.0.0.1"
+  fi
+  N8N_TLS_DAYS="${N8N_TLS_DAYS:-3650}"
+  N8N_HTTPS_PORT="${N8N_HTTPS_PORT:-443}"
+  export N8N_TLS_HOSTNAME N8N_TLS_EXTRA_IP N8N_TLS_DAYS N8N_HTTPS_PORT
+}
+
+public_https_url() {
+  if [[ "$N8N_HTTPS_PORT" == "443" ]]; then
+    printf 'https://%s/' "$N8N_TLS_HOSTNAME"
+  else
+    printf 'https://%s:%s/' "$N8N_TLS_HOSTNAME" "$N8N_HTTPS_PORT"
+  fi
 }
 
 load_manifest() {
@@ -133,6 +158,7 @@ create_user_and_dirs() {
   install -d -o n8n -g n8n -m 0750 /var/lib/n8n
   install -d -o n8n -g n8n -m 0750 /var/log/n8n
   install -d -o root -g root -m 0750 /etc/n8n
+  chown -R n8n:n8n /var/lib/n8n /var/log/n8n
 }
 
 generate_secret_hex() { openssl rand -hex "$1"; }
@@ -140,10 +166,12 @@ generate_secret_hex() { openssl rand -hex "$1"; }
 write_env_file() {
   log "正在寫入 /etc/n8n/n8n.env..."
   local env_file="/etc/n8n/n8n.env"
+  local webhook_url
 
   N8N_ENCRYPTION_KEY="${N8N_ENCRYPTION_KEY:-$(generate_secret_hex 32)}"
   N8N_PORT="${N8N_PORT:-5678}"
   GENERIC_TIMEZONE="${GENERIC_TIMEZONE:-Asia/Taipei}"
+  webhook_url="$(public_https_url)"
 
   umask 077
   cat > "$env_file" <<ENV
@@ -151,9 +179,12 @@ NODE_ENV=production
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 HOME=/var/lib/n8n
 N8N_USER_FOLDER=/var/lib/n8n
-N8N_LISTEN_ADDRESS=0.0.0.0
+N8N_LISTEN_ADDRESS=127.0.0.1
 N8N_PORT=${N8N_PORT}
-N8N_PROTOCOL=http
+N8N_PROTOCOL=https
+N8N_HOST=${N8N_TLS_HOSTNAME}
+WEBHOOK_URL=${webhook_url}
+N8N_PROXY_HOPS=1
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
 N8N_RUNNERS_ENABLED=true
 GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
@@ -167,6 +198,128 @@ DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
 DB_POSTGRESDB_SCHEMA=public
 ENV
   chown root:n8n "$env_file"; chmod 640 "$env_file"
+}
+
+generate_self_signed_cert() {
+  local tls_dir=/etc/n8n/tls
+  local key_file="$tls_dir/server.key"
+  local crt_file="$tls_dir/server.crt"
+
+  install -d -o root -g root -m 0750 "$tls_dir"
+  if [[ -s "$key_file" && -s "$crt_file" ]]; then
+    log "self-signed 憑證已存在，跳過產生 (${crt_file})"
+  else
+    log "產生 self-signed 憑證 CN=${N8N_TLS_HOSTNAME} SAN=DNS:${N8N_TLS_HOSTNAME},IP:${N8N_TLS_EXTRA_IP} (${N8N_TLS_DAYS} 天)..."
+    umask 077
+    openssl req -x509 -nodes \
+      -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+      -keyout "${key_file}.tmp" \
+      -out "${crt_file}.tmp" \
+      -days "$N8N_TLS_DAYS" \
+      -subj "/CN=${N8N_TLS_HOSTNAME}" \
+      -addext "subjectAltName=DNS:${N8N_TLS_HOSTNAME},IP:${N8N_TLS_EXTRA_IP}" \
+      >/dev/null 2>&1
+    mv "${key_file}.tmp" "$key_file"
+    mv "${crt_file}.tmp" "$crt_file"
+  fi
+
+  if getent group nginx >/dev/null; then
+    chown root:nginx "$key_file" "$crt_file"
+  else
+    chown root:root "$key_file" "$crt_file"
+  fi
+  chmod 0640 "$key_file" "$crt_file"
+}
+
+write_nginx_config() {
+  log "寫入 nginx 反向代理設定..."
+
+  cat > /etc/nginx/nginx.conf <<'NGINXCONF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    tcp_nopush      on;
+    keepalive_timeout 65;
+    server_tokens   off;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    include /etc/nginx/conf.d/*.conf;
+}
+NGINXCONF
+
+  cat > /etc/nginx/conf.d/n8n.conf <<NGINXSITE
+server {
+    listen ${N8N_HTTPS_PORT} ssl http2;
+    listen [::]:${N8N_HTTPS_PORT} ssl http2;
+    server_name _;
+
+    ssl_certificate     /etc/n8n/tls/server.crt;
+    ssl_certificate_key /etc/n8n/tls/server.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 100M;
+    proxy_read_timeout   3600s;
+    proxy_send_timeout   3600s;
+
+    location / {
+        proxy_pass http://127.0.0.1:${N8N_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host              \$http_host;
+        proxy_set_header Upgrade           \$http_upgrade;
+        proxy_set_header Connection        \$connection_upgrade;
+        proxy_set_header X-Real-IP         \$remote_addr;
+        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  \$http_host;
+    }
+}
+NGINXSITE
+}
+
+test_nginx_config() {
+  log "驗證 nginx 設定..."
+  /usr/sbin/nginx -t
+}
+
+configure_host_for_nginx() {
+  [[ "$VERIFY_NO_SYSTEMD" == "0" ]] || return 0
+
+  if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
+    if command -v setsebool >/dev/null 2>&1; then
+      log "設定 SELinux: httpd_can_network_connect=on"
+      setsebool -P httpd_can_network_connect 1 || log "warning: setsebool 失敗，可能需手動處理"
+    fi
+  fi
+
+  if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    log "firewalld: 開放 ${N8N_HTTPS_PORT}/tcp"
+    firewall-cmd --permanent --add-port="${N8N_HTTPS_PORT}/tcp" >/dev/null
+    firewall-cmd --reload >/dev/null
+  fi
 }
 
 install_systemd_service() {
@@ -198,6 +351,7 @@ WantedBy=multi-user.target
 UNIT
 
   systemctl daemon-reload
+  systemctl enable --now nginx
   systemctl enable --now n8n
 }
 
@@ -227,32 +381,37 @@ verify_pg_connection() {
   )
 }
 
-wait_for_http() {
-  log "正在等待埠號 ${N8N_PORT} 上的 n8n HTTP 端點..."
+wait_for_https() {
+  log "正在等待 https://127.0.0.1:${N8N_HTTPS_PORT}/healthz (透過 nginx 反代到 n8n:${N8N_PORT})..."
   for _ in $(seq 1 90); do
-    if curl -fsS --max-time 2 "http://127.0.0.1:${N8N_PORT}/healthz" >/dev/null 2>&1; then return 0; fi
+    if curl -kfsS --max-time 2 "https://127.0.0.1:${N8N_HTTPS_PORT}/healthz" >/dev/null 2>&1; then return 0; fi
     sleep 2
   done
-  die "n8n 未能在時間內響應 HTTP。"
+  die "n8n / nginx 未能在時間內響應 HTTPS。"
 }
 
 systemd_smoke_test() {
   [[ "$SKIP_SMOKE" == "0" ]] || return 0
   log "正在執行 n8n 冒煙測試 (systemd)..."
-  wait_for_http
+  wait_for_https
   systemctl is-active --quiet n8n
+  systemctl is-active --quiet nginx
 }
 
 verify_no_systemd_smoke_test() {
   [[ "$SKIP_SMOKE" == "0" ]] || return 0
-  log "正在執行 n8n 冒煙測試 (背景啟動，無 systemd)..."
+  log "正在執行 n8n + nginx 冒煙測試 (背景啟動，無 systemd)..."
   install -d -o n8n -g n8n -m 0750 /var/log/n8n
+  install -d -o root -g root -m 0755 /var/log/nginx
   set -a; source /etc/n8n/n8n.env; set +a
   su -s /bin/bash n8n -c '/usr/local/bin/n8n start' \
     >/var/log/n8n/n8n.log 2>/var/log/n8n/n8n.err &
   local n8n_pid=$!
-  trap "kill ${n8n_pid} >/dev/null 2>&1 || true" EXIT
-  wait_for_http
+  test_nginx_config
+  /usr/sbin/nginx
+  trap "kill ${n8n_pid} >/dev/null 2>&1 || true; /usr/sbin/nginx -s quit >/dev/null 2>&1 || true" EXIT
+  wait_for_https
+  /usr/sbin/nginx -s quit >/dev/null 2>&1 || true
   kill "${n8n_pid}" >/dev/null 2>&1 || true
   trap - EXIT
 }
@@ -262,6 +421,7 @@ main() {
   need_root
   need_command sha256sum
   require_db_env
+  resolve_tls_env
 
   load_manifest
   preflight
@@ -271,6 +431,10 @@ main() {
   create_user_and_dirs
   write_env_file
   verify_pg_connection
+  generate_self_signed_cert
+  write_nginx_config
+  test_nginx_config
+  configure_host_for_nginx
   install_systemd_service
 
   if [[ "$VERIFY_NO_SYSTEMD" == "0" ]]; then
@@ -279,6 +443,6 @@ main() {
     verify_no_systemd_smoke_test
   fi
 
-  log "安裝完成。n8n 已配置於 http://0.0.0.0:${N8N_PORT}"
+  log "安裝完成。n8n 已配置於 $(public_https_url) (self-signed, 瀏覽器首次會出現憑證警告)"
 }
 main "$@"

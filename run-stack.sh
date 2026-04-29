@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 在當前 Docker 環境啟動「n8n + 外部 PostgreSQL 18」的雙容器堆疊，
-# 把 n8n 的 5678 對外公開到宿主機，方便瀏覽器存取。
+# 由容器內 nginx 以 self-signed TLS 反代到只聽 127.0.0.1 的 n8n。
 # 使用兩份離線 bundle (n8n / postgres) 並透過 docker volume 持久化資料。
 
 set -Eeuo pipefail
@@ -19,7 +19,7 @@ N8N_CONTAINER="n8n-stack-n8n"
 PG_VOLUME="n8n-stack-pg-data"
 N8N_VOLUME="n8n-stack-n8n-data"
 
-N8N_HOST_PORT="${N8N_HOST_PORT:-5678}"
+N8N_HOST_HTTPS_PORT="${N8N_HOST_HTTPS_PORT:-${N8N_HOST_PORT:-8443}}"
 ENV_FILE="${SCRIPT_DIR}/.stack-env"
 
 log() { printf '[run-stack] %s\n' "$*"; }
@@ -30,7 +30,7 @@ usage() {
 用法: $0 <command>
 
 commands:
-  up        建立網路 / 容器，啟動 n8n + PG，並把 n8n 5678 公開到宿主機 ${N8N_HOST_PORT}
+  up        建立網路 / 容器，啟動 n8n + PG，並把 HTTPS 公開到宿主機 ${N8N_HOST_HTTPS_PORT}
   down      停止並移除容器與網路 (volume 保留，資料不會丟失)
   destroy   down + 同時刪除 docker volume (清空 PG 與 n8n 資料！)
   status    顯示容器狀態
@@ -38,9 +38,10 @@ commands:
   pg-logs   跟隨 PG 容器 log
 
 環境變數 (覆寫預設):
-  N8N_HOST_PORT     n8n 在宿主機監聽的埠 (預設 5678)
-  N8N_BUNDLE        n8n bundle 路徑
-  PG_BUNDLE         PG bundle 路徑
+  N8N_HOST_HTTPS_PORT  HTTPS 在宿主機監聽的埠 (預設 8443)
+  N8N_HOST_PORT        舊名稱 fallback；未設定 N8N_HOST_HTTPS_PORT 時才使用
+  N8N_BUNDLE           n8n bundle 路徑
+  PG_BUNDLE            PG bundle 路徑
 USAGE
 }
 
@@ -70,10 +71,28 @@ container_running() {
   docker ps --format '{{.Names}}' | grep -q "^${1}$"
 }
 
+wait_for_https() {
+  log "等待 n8n HTTPS 就緒 (https://localhost:${N8N_HOST_HTTPS_PORT}/healthz)..."
+  for i in $(seq 1 180); do
+    if ! container_running "$N8N_CONTAINER"; then
+      docker logs --tail 80 "$N8N_CONTAINER" >&2 || true
+      die "n8n 容器在 ${i} 秒後終止"
+    fi
+    if curl -kfsS --max-time 2 "https://localhost:${N8N_HOST_HTTPS_PORT}/healthz" >/dev/null 2>&1; then
+      log "n8n HTTPS 已就緒"
+      return 0
+    fi
+    sleep 1
+  done
+  docker logs --tail 120 "$N8N_CONTAINER" >&2 || true
+  die "n8n HTTPS 未能在 180 秒內響應"
+}
+
 cmd_up() {
   [[ -d "$N8N_BUNDLE" ]] || die "n8n bundle 不存在: $N8N_BUNDLE"
   [[ -d "$PG_BUNDLE" ]] || die "PG bundle 不存在: $PG_BUNDLE"
   command -v docker >/dev/null 2>&1 || die "找不到 docker"
+  command -v curl >/dev/null 2>&1 || die "找不到 curl"
 
   ensure_env_file
   docker pull --platform "$DOCKER_PLATFORM" "$RHEL_IMAGE" >/dev/null
@@ -118,11 +137,11 @@ cmd_up() {
     log "n8n 容器已在運行"
   else
     container_exists "$N8N_CONTAINER" && docker rm -f "$N8N_CONTAINER" >/dev/null
-    log "啟動 n8n 容器 ${N8N_CONTAINER} (對外公開 :${N8N_HOST_PORT})"
+    log "啟動 n8n 容器 ${N8N_CONTAINER} (HTTPS 對外公開 :${N8N_HOST_HTTPS_PORT})"
     docker run -d --name "$N8N_CONTAINER" --network "$NETWORK_NAME" \
       --platform "$DOCKER_PLATFORM" \
       --restart unless-stopped \
-      -p "${N8N_HOST_PORT}:5678" \
+      -p "${N8N_HOST_HTTPS_PORT}:${N8N_HOST_HTTPS_PORT}" \
       -v "$N8N_BUNDLE:/bundle:ro" \
       -v "$N8N_VOLUME:/var/lib/n8n" \
       -e N8N_DB_HOST="$PG_CONTAINER" \
@@ -131,6 +150,9 @@ cmd_up() {
       -e N8N_DB_USER=n8n \
       -e N8N_DB_PASSWORD="$PG_PASSWORD" \
       -e N8N_ENCRYPTION_KEY="$N8N_ENCRYPTION_KEY" \
+      -e N8N_TLS_HOSTNAME=localhost \
+      -e N8N_TLS_EXTRA_IP=127.0.0.1 \
+      -e N8N_HTTPS_PORT="$N8N_HOST_HTTPS_PORT" \
       "$RHEL_IMAGE" \
       bash -c '
         set -Eeuo pipefail
@@ -140,14 +162,23 @@ cmd_up() {
         fi
         # 以 root 讀 env 後 export，再切到 n8n user 起 n8n。
         # runuser -m 保留環境變數 (DB_POSTGRESDB_*、N8N_ENCRYPTION_KEY 等)
+        chown -R n8n:n8n /var/lib/n8n
         set -a; . /etc/n8n/n8n.env; set +a
-        exec runuser -m -u n8n -- /usr/local/bin/n8n start
+        runuser -m -u n8n -- /usr/local/bin/n8n start &
+        n8n_pid=$!
+        /usr/sbin/nginx -g "daemon off;" &
+        nginx_pid=$!
+        trap "kill ${n8n_pid} ${nginx_pid} >/dev/null 2>&1 || true" TERM INT
+        wait -n "${n8n_pid}" "${nginx_pid}"
       ' >/dev/null
   fi
 
+  wait_for_https
+
   cat <<EOF
 
-[run-stack] 完成。n8n 即將在 http://localhost:${N8N_HOST_PORT} 上線。
+[run-stack] 完成。n8n 已在 https://localhost:${N8N_HOST_HTTPS_PORT} 上線。
+            self-signed 憑證會讓瀏覽器首次連線出現警告。
             首次啟動需數十秒（容器內要解壓 n8n + 連 PG）。
             查看進度:    $0 logs
             停止 (留資料): $0 down
