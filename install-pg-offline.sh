@@ -178,28 +178,45 @@ print_post_install_hint() {
   cat <<MSG
 
 [install-pg-offline] PostgreSQL ${PG_MAJOR} 已啟動於 5432 (預設僅監聽 localhost)。
+                     設定檔位置：${PG_DATA}/
 
 下一步請手動完成以下設定，才能讓 n8n 主機連入：
 
-  1. 編輯 ${PG_DATA}/postgresql.conf：
-       listen_addresses = '*'
+  1. 編輯 ${PG_DATA}/postgresql.conf 把 #listen_addresses = 'localhost'
+     註解打開，改成只 listen 內網介面 (避免用 '*'，會無差別接受所有來源)：
 
-  2. 編輯 ${PG_DATA}/pg_hba.conf 加入 n8n host 規則：
+       listen_addresses = 'localhost,<host_b_internal_ip>'
+
+  2. 編輯 ${PG_DATA}/pg_hba.conf 加入只允許 n8n host 的規則：
+
        host  n8n  n8n  <n8n_host_ip>/32  scram-sha-256
 
   3. 重啟服務：
-       systemctl restart postgresql-${PG_MAJOR}
 
-  4. 建立 n8n 角色與資料庫：
-       sudo -u postgres ${PG_BIN}/psql -c "CREATE ROLE n8n LOGIN PASSWORD '<chosen-password>';"
+       sudo systemctl restart postgresql-${PG_MAJOR}
+
+  4. 建 n8n 角色 (用 \\password 互動式輸入，避免密碼進 shell history)：
+
+       sudo -u postgres ${PG_BIN}/psql -c "CREATE ROLE n8n LOGIN;"
+       sudo -u postgres ${PG_BIN}/psql -c "\\password n8n"
+
+  5. 建 n8n 資料庫：
+
        sudo -u postgres ${PG_BIN}/createdb --owner=n8n n8n
 
-  5. 在 n8n 資料庫啟用 pgvector：
+  6. 在 n8n 資料庫啟用 pgvector：
+
        sudo -u postgres ${PG_BIN}/psql -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'
 
-  6. 在 n8n 主機執行 install-offline.sh 時，提供：
+  7. 驗證 listen 範圍：
+
+       ss -ltn | grep 5432
+       sudo -u postgres ${PG_BIN}/psql -c "SHOW listen_addresses;"
+
+  8. 在 n8n 主機執行 install-offline.sh 時提供：
+
        N8N_DB_HOST=<this_host_ip>
-       N8N_DB_PASSWORD=<chosen-password>
+       N8N_DB_PASSWORD=<上一步設的密碼>
 MSG
 }
 

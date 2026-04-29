@@ -300,13 +300,51 @@ sudo ./install-pg-offline.sh
 - `postgresql-18-setup initdb` 初始化 datadir
 - `systemctl enable --now postgresql-18`
 
-**安裝完成後依腳本提示手動完成**：
-1. `postgresql.conf` 設 `listen_addresses = '*'`
-2. `pg_hba.conf` 加入 `host  n8n  n8n  <n8n_host_ip>/32  scram-sha-256`
-3. `systemctl restart postgresql-18`
-4. `sudo -u postgres psql -c "CREATE ROLE n8n LOGIN PASSWORD '<chosen-password>';"`
-5. `sudo -u postgres createdb --owner=n8n n8n`
-6. `sudo -u postgres psql -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'`
+**安裝完成後依腳本提示手動完成**（設定檔位置：`/var/lib/pgsql/18/data/`）：
+
+1. 編輯 `postgresql.conf`，把 `#listen_addresses = 'localhost'` 註解打開，改成**只 listen 內網介面**（避免用 `'*'`，會無差別接受所有來源）：
+
+   ```conf
+   listen_addresses = 'localhost,<host_b_internal_ip>'
+   ```
+
+2. 編輯 `pg_hba.conf`，加入只允許 n8n host 的規則：
+
+   ```conf
+   host  n8n  n8n  <n8n_host_ip>/32  scram-sha-256
+   ```
+
+3. 重啟服務：
+
+   ```bash
+   sudo systemctl restart postgresql-18
+   ```
+
+4. 建 n8n 角色（用 `\password` 互動式輸入，**避免密碼進 shell history**）：
+
+   ```bash
+   sudo -u postgres psql -c "CREATE ROLE n8n LOGIN;"
+   sudo -u postgres psql -c "\password n8n"
+   ```
+
+5. 建 n8n 資料庫：
+
+   ```bash
+   sudo -u postgres createdb --owner=n8n n8n
+   ```
+
+6. 啟用 pgvector：
+
+   ```bash
+   sudo -u postgres psql -d n8n -c 'CREATE EXTENSION IF NOT EXISTS vector;'
+   ```
+
+7. 驗證 listen 範圍：
+
+   ```bash
+   ss -ltn | grep 5432
+   sudo -u postgres psql -c "SHOW listen_addresses;"
+   ```
 
 ## 3. 離線 host A：安裝 n8n
 
