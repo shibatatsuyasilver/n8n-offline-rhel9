@@ -34,170 +34,346 @@
 
 - Node.js v22.22.2 — 來源 tarball `node-v22.22.2-linux-x64.tar.xz`
 
-#### RPM 套件（241 個，含遞移相依）
+#### RPM 套件（241 個 RPM 檔，213 個套件名稱，含遞移相依）
 
 直接安裝（seed，由 `prepare-online.sh` 指定）：`ca-certificates`, `tzdata`, `curl`, `openssl`, `git`, `GraphicsMagick`, `fontconfig`, `xz`, `nginx`
 
-摘要清單（依字母排序；完整清單以 bundle 內 `rpm-packages.tsv` 為準）：
+套件名稱清單（依字母排序；版本、架構、檔名與 SHA-256 以 bundle 內 `rpm-packages.tsv` 為準）：
 
-```
-GraphicsMagick, alternatives, audit-libs, basesystem, bash, bzip2-libs,
-ca-certificates, coreutils, coreutils-common, cracklib, cracklib-dicts,
-crypto-policies, curl, cyrus-sasl-lib, dejavu-sans-fonts, emacs-filesystem,
-expat, filesystem, findutils, fontconfig, fonts-filesystem, freetype,
-gawk, gawk-all-langpacks, gdbm-libs, git, git-core, git-core-doc, glib2,
-glibc, glibc-common, glibc-gconv-extra, glibc-minimal-langpack, gmp,
-gnutls, graphite2, grep, groff-base, gzip, harfbuzz, jasper-libs,
-jbigkit-libs, keyutils-libs, krb5-libs, langpacks-core-font-en, lcms2,
-less, libICE, libSM, libX11, libX11-common, libXau, libXext, libacl,
-libattr, libblkid, libbrotli, libcap, libcap-ng, libcbor, libcom_err,
-libcurl, libdb, libeconf, libedit, libevent, libfdisk, libffi, libfido2,
-libgcc, libgcrypt, libgomp, libgpg-error, libidn2, libjpeg-turbo,
-libmount, libnghttp2, libpng, libpsl, libpwquality, libselinux,
-libsemanage, libsepol, libsigsegv, libsmartcols, libssh, libssh-config,
-libstdc++, libtasn1, libtiff, libtool-ltdl, libunistring, libutempter,
-libuuid, libverto, libwebp, libwmf-lite, libxcb, libxcrypt, libxml2,
-libzstd, logrotate, lz4-libs, mpfr, ncurses, ncurses-base, ncurses-libs,
-nettle, nginx, nginx-core, nginx-filesystem, openldap, openssh, openssh-clients, openssl, openssl-fips-provider,
-openssl-libs, p11-kit, p11-kit-trust, pam, pcre, pcre2, pcre2-syntax,
-perl-AutoLoader, perl-B, perl-Carp, perl-Class-Struct, perl-Data-Dumper,
-perl-Digest, perl-Digest-MD5, perl-DynaLoader, perl-Encode, perl-Errno,
-perl-Error, perl-Exporter, perl-Fcntl, perl-File-Basename, perl-File-Find,
-perl-File-Path, perl-File-Temp, perl-File-stat, perl-FileHandle,
-perl-Getopt-Long, perl-Getopt-Std, perl-Git, perl-HTTP-Tiny, perl-IO,
-perl-IO-Socket-IP, perl-IO-Socket-SSL, perl-IPC-Open3, perl-MIME-Base64,
-perl-Mozilla-CA, perl-NDBM_File, perl-Net-SSLeay, perl-POSIX,
-perl-PathTools, perl-Pod-Escapes, perl-Pod-Perldoc, perl-Pod-Simple,
-perl-Pod-Usage, perl-Scalar-List-Utils, perl-SelectSaver, perl-Socket,
-perl-Storable, perl-Symbol, perl-Term-ANSIColor, perl-Term-Cap,
-perl-TermReadKey, perl-Text-ParseWords, perl-Text-Tabs+Wrap,
-perl-Time-Local, perl-URI, perl-base, perl-constant, perl-if,
-perl-interpreter, perl-lib, perl-libnet, perl-libs, perl-mro,
-perl-overload, perl-overloading, perl-parent, perl-podlators, perl-subs,
-perl-vars, popt, publicsuffix-list-dafsa, readline, rocky-gpg-keys,
-rocky-logos-httpd, rocky-release, rocky-repos, sed, setup, shadow-utils,
-systemd, systemd-libs, systemd-pam, systemd-rpm-macros, tzdata, util-linux,
-util-linux-core, xml-common, xz, xz-libs, zlib
-```
+| 套件 | 用途 |
+|---|---|
+| GraphicsMagick | 影像轉換與處理工具 |
+| acl | 檔案 ACL 權限工具 |
+| alternatives | 管理系統替代命令連結 |
+| audit-libs | Linux audit 稽核程式庫 |
+| basesystem | Rocky/RHEL 基礎系統定義 |
+| bash | Shell 指令執行環境 |
+| bzip2-libs | bzip2 壓縮格式程式庫 |
+| ca-certificates | 信任根憑證集合 |
+| coreutils | 基本檔案與文字命令 |
+| coreutils-common | coreutils 共用資料檔 |
+| cracklib | 密碼強度檢查程式庫 |
+| cracklib-dicts | 密碼檢查字典資料 |
+| crypto-policies | 系統加密政策設定 |
+| curl | HTTP/HTTPS 下載與測試工具 |
+| cyrus-sasl-lib | SASL 認證支援程式庫 |
+| dbus | 系統服務訊息匯流排 |
+| dbus-broker | D-Bus 訊息代理服務 |
+| dbus-common | D-Bus 共用設定檔 |
+| dejavu-sans-fonts | DejaVu Sans 字型 |
+| emacs-filesystem | Emacs 套件目錄結構 |
+| expat | XML 解析程式庫 |
+| filesystem | 基本檔案系統目錄 |
+| findutils | 檔案搜尋工具 |
+| fontconfig | 字型探索與設定工具 |
+| fonts-filesystem | 系統字型目錄結構 |
+| freetype | 字型渲染程式庫 |
+| gawk | AWK 文字處理工具 |
+| gawk-all-langpacks | gawk 多語系支援資料 |
+| gdbm-libs | GNU dbm 資料庫程式庫 |
+| git | Git 版本控制工具 |
+| git-core | Git 核心命令 |
+| git-core-doc | Git 文件頁面 |
+| glib2 | GLib 基礎工具程式庫 |
+| glibc | GNU C 標準程式庫 |
+| glibc-common | glibc 共用資料與工具 |
+| glibc-gconv-extra | glibc 額外字元轉換模組 |
+| glibc-minimal-langpack | glibc 最小語系資料 |
+| gmp | 任意精度數學程式庫 |
+| gnutls | TLS/SSL 加密通訊程式庫 |
+| graphite2 | Graphite 字型排版程式庫 |
+| grep | 文字搜尋工具 |
+| groff-base | man page 排版工具 |
+| gzip | gzip 壓縮工具 |
+| harfbuzz | OpenType 文字塑形程式庫 |
+| jasper-libs | JPEG-2000 影像程式庫 |
+| jbigkit-libs | JBIG 影像壓縮程式庫 |
+| keyutils-libs | Linux keyring 程式庫 |
+| kmod-libs | Kernel module 管理程式庫 |
+| krb5-libs | Kerberos 認證程式庫 |
+| langpacks-core-font-en | 英文核心字型支援 |
+| lcms2 | 色彩管理程式庫 |
+| less | 終端分頁檢視工具 |
+| libICE | X11 ICE 連線程式庫 |
+| libSM | X11 session 管理程式庫 |
+| libX11 | X11 用戶端程式庫 |
+| libX11-common | X11 共用資料檔 |
+| libXau | X11 授權程式庫 |
+| libXext | X11 擴充程式庫 |
+| libacl | ACL 權限程式庫 |
+| libattr | 延伸屬性程式庫 |
+| libblkid | 區塊裝置識別程式庫 |
+| libbrotli | Brotli 壓縮程式庫 |
+| libcap | Linux capability 程式庫 |
+| libcap-ng | Capability 管理程式庫 |
+| libcbor | CBOR 編碼程式庫 |
+| libcom_err | 通用錯誤處理程式庫 |
+| libcurl | curl 用戶端程式庫 |
+| libdb | Berkeley DB 程式庫 |
+| libeconf | 設定檔解析程式庫 |
+| libedit | 命令列編輯程式庫 |
+| libevent | 事件通知程式庫 |
+| libfdisk | 磁碟分割程式庫 |
+| libffi | 外部函式介面程式庫 |
+| libfido2 | FIDO2/WebAuthn 程式庫 |
+| libgcc | GCC 執行時期程式庫 |
+| libgcrypt | 通用加密程式庫 |
+| libgomp | OpenMP 執行時期程式庫 |
+| libgpg-error | GnuPG 錯誤碼程式庫 |
+| libidn2 | 國際化網域名稱程式庫 |
+| libjpeg-turbo | JPEG 影像編解碼程式庫 |
+| libmount | 檔案系統掛載程式庫 |
+| libnghttp2 | HTTP/2 通訊程式庫 |
+| libpng | PNG 影像程式庫 |
+| libpsl | Public Suffix List 程式庫 |
+| libpwquality | 密碼品質檢查程式庫 |
+| libseccomp | 系統呼叫過濾程式庫 |
+| libselinux | SELinux 執行時期程式庫 |
+| libsemanage | SELinux 政策管理程式庫 |
+| libsepol | SELinux 政策程式庫 |
+| libsigsegv | 記憶體錯誤處理程式庫 |
+| libsmartcols | 表格輸出格式程式庫 |
+| libssh | SSH 通訊程式庫 |
+| libssh-config | libssh 系統設定 |
+| libstdc++ | C++ 標準程式庫 |
+| libtasn1 | ASN.1 解析程式庫 |
+| libtiff | TIFF 影像程式庫 |
+| libtool-ltdl | 動態載入模組程式庫 |
+| libunistring | Unicode 字串處理程式庫 |
+| libutempter | 終端登入記錄程式庫 |
+| libuuid | UUID 產生與解析程式庫 |
+| libverto | 事件迴圈抽象程式庫 |
+| libwebp | WebP 影像程式庫 |
+| libwmf-lite | WMF 影像格式程式庫 |
+| libxcb | X11 C Binding 程式庫 |
+| libxcrypt | 密碼雜湊程式庫 |
+| libxml2 | XML 解析程式庫 |
+| libzstd | Zstandard 壓縮程式庫 |
+| logrotate | 日誌輪替管理工具 |
+| lz4-libs | LZ4 壓縮程式庫 |
+| mpfr | 高精度浮點數程式庫 |
+| ncurses | 終端文字介面工具 |
+| ncurses-base | 終端能力資料庫 |
+| ncurses-libs | 終端控制程式庫 |
+| nettle | 低階加密程式庫 |
+| nginx | HTTPS 反向代理服務 |
+| nginx-core | nginx 核心服務程式 |
+| nginx-filesystem | nginx 目錄與使用者設定 |
+| openldap | LDAP 用戶端程式庫 |
+| openssh | SSH 基礎工具 |
+| openssh-clients | SSH 用戶端工具 |
+| openssl | TLS/SSL 憑證與加密工具 |
+| openssl-fips-provider | OpenSSL FIPS 加密模組 |
+| openssl-libs | OpenSSL 執行時期程式庫 |
+| p11-kit | PKCS#11 模組管理 |
+| p11-kit-trust | 系統信任憑證整合 |
+| pam | PAM 身分驗證模組 |
+| pcre | Perl 相容正規表示式庫 |
+| pcre2 | PCRE2 正規表示式庫 |
+| pcre2-syntax | PCRE2 語法文件 |
+| perl-AutoLoader | Perl 延遲載入模組 |
+| perl-B | Perl 編譯器後端模組 |
+| perl-Carp | Perl 錯誤回報模組 |
+| perl-Class-Struct | Perl 結構類別模組 |
+| perl-Data-Dumper | Perl 資料序列化模組 |
+| perl-Digest | Perl digest 基礎模組 |
+| perl-Digest-MD5 | Perl MD5 雜湊模組 |
+| perl-DynaLoader | Perl 動態載入模組 |
+| perl-Encode | Perl 字元編碼模組 |
+| perl-Errno | Perl 系統錯誤碼模組 |
+| perl-Error | Perl 例外處理模組 |
+| perl-Exporter | Perl 符號匯出模組 |
+| perl-Fcntl | Perl 檔案控制模組 |
+| perl-File-Basename | Perl 路徑名稱處理模組 |
+| perl-File-Find | Perl 檔案搜尋模組 |
+| perl-File-Path | Perl 目錄建立刪除模組 |
+| perl-File-Temp | Perl 暫存檔模組 |
+| perl-File-stat | Perl 檔案狀態模組 |
+| perl-FileHandle | Perl 檔案控制代碼模組 |
+| perl-Getopt-Long | Perl 長參數解析模組 |
+| perl-Getopt-Std | Perl 標準參數解析模組 |
+| perl-Git | Git 的 Perl 整合模組 |
+| perl-HTTP-Tiny | Perl 輕量 HTTP 用戶端 |
+| perl-IO | Perl 輸入輸出模組 |
+| perl-IO-Socket-IP | Perl IP socket 模組 |
+| perl-IO-Socket-SSL | Perl SSL socket 模組 |
+| perl-IPC-Open3 | Perl 子程序通訊模組 |
+| perl-MIME-Base64 | Perl Base64 編解碼模組 |
+| perl-Mozilla-CA | Perl Mozilla CA 憑證 |
+| perl-NDBM_File | Perl NDBM 檔案模組 |
+| perl-Net-SSLeay | Perl OpenSSL 綁定模組 |
+| perl-POSIX | Perl POSIX 介面模組 |
+| perl-PathTools | Perl 路徑工具模組 |
+| perl-Pod-Escapes | Perl POD escape 模組 |
+| perl-Pod-Perldoc | Perl 文件檢視工具 |
+| perl-Pod-Simple | Perl POD 解析模組 |
+| perl-Pod-Usage | Perl usage 文件模組 |
+| perl-Scalar-List-Utils | Perl scalar/list 工具模組 |
+| perl-SelectSaver | Perl select 狀態保存模組 |
+| perl-Socket | Perl socket 網路模組 |
+| perl-Storable | Perl 資料持久化模組 |
+| perl-Symbol | Perl symbol 操作模組 |
+| perl-Term-ANSIColor | Perl 終端色彩模組 |
+| perl-Term-Cap | Perl 終端能力模組 |
+| perl-TermReadKey | Perl 終端按鍵讀取模組 |
+| perl-Text-ParseWords | Perl shell 文字解析模組 |
+| perl-Text-Tabs+Wrap | Perl 文字縮排換行模組 |
+| perl-Time-Local | Perl 本地時間轉換模組 |
+| perl-URI | Perl URI 解析模組 |
+| perl-base | Perl 基礎模組集合 |
+| perl-constant | Perl 常數宣告模組 |
+| perl-if | Perl 條件載入模組 |
+| perl-interpreter | Perl 執行環境 |
+| perl-lib | Perl 函式庫路徑支援 |
+| perl-libnet | Perl 網路協定模組 |
+| perl-libs | Perl 核心程式庫 |
+| perl-mro | Perl 方法解析順序模組 |
+| perl-overload | Perl 運算子重載模組 |
+| perl-overloading | Perl 重載控制模組 |
+| perl-parent | Perl 父類別宣告模組 |
+| perl-podlators | Perl POD 轉換工具 |
+| perl-subs | Perl 子程序預宣告模組 |
+| perl-vars | Perl 全域變數宣告模組 |
+| popt | 命令列選項解析程式庫 |
+| publicsuffix-list-dafsa | 網域後綴清單資料 |
+| readline | 互動式命令列編輯庫 |
+| rocky-gpg-keys | Rocky Linux 套件簽章金鑰 |
+| rocky-logos-httpd | Rocky HTTPD 預設頁素材 |
+| rocky-release | Rocky Linux 發行版資訊 |
+| rocky-repos | Rocky Linux yum repo 設定 |
+| sed | 串流文字編輯工具 |
+| setup | 系統基礎設定檔 |
+| shadow-utils | 系統帳號管理工具 |
+| systemd | 系統服務管理器 |
+| systemd-libs | systemd 共用程式庫 |
+| systemd-pam | systemd PAM 整合模組 |
+| systemd-rpm-macros | systemd RPM 打包巨集 |
+| tzdata | 時區資料 |
+| util-linux | Linux 系統管理工具集 |
+| util-linux-core | util-linux 核心工具 |
+| xml-common | XML 共用目錄資料 |
+| xz | xz 壓縮工具 |
+| xz-libs | xz 壓縮程式庫 |
+| zlib | zlib 壓縮程式庫 |
 
 #### npm 套件（n8n@2.17.7 的 114 個 top-level 直接相依）
 
-| 套件 | 版本 |
-|---|---|
-| @1password/connect | 1.4.2 |
-| @ai-sdk/anthropic | 2.0.61 |
-| @apidevtools/json-schema-ref-parser | 12.0.2 |
-| @aws-sdk/client-secrets-manager | 3.808.0 |
-| @azure/identity | 4.13.0 |
-| @azure/keyvault-secrets | 4.8.0 |
-| @google-cloud/secret-manager | 5.6.0 |
-| @modelcontextprotocol/sdk | 1.26.0 |
-| @n8n/ai-node-sdk | 0.8.0 |
-| @n8n/ai-utilities | 0.11.0 |
-| @n8n/ai-workflow-builder | 1.17.3 |
-| @n8n/api-types | 1.17.3 |
-| @n8n/backend-common | 1.17.3 |
-| @n8n/chat-hub | 1.10.3 |
-| @n8n/client-oauth2 | 1.1.1 |
-| @n8n/config | 2.16.0 |
-| @n8n/constants | 0.21.1 |
-| @n8n/db | 1.17.3 |
-| @n8n/decorators | 1.17.3 |
-| @n8n/di | 0.10.0 |
-| @n8n/errors | 0.7.0 |
-| @n8n/instance-ai | 1.2.3 |
-| @n8n/n8n-nodes-langchain | 2.17.4 |
-| @n8n/permissions | 0.56.0 |
-| @n8n/syslog-client | 1.2.0 |
-| @n8n/task-runner | 2.17.3 |
-| @n8n/typeorm | 0.3.20-16 |
-| @n8n/utils | 1.28.1 |
-| @n8n/workflow-sdk | 0.10.2 |
-| @n8n_io/ai-assistant-sdk | 1.21.0 |
-| @n8n_io/license-sdk | 2.25.0 |
-| @opentelemetry/api | 1.9.1 |
-| @opentelemetry/exporter-trace-otlp-proto | 0.213.0 |
-| @opentelemetry/instrumentation | 0.213.0 |
-| @opentelemetry/resources | 2.7.0 |
-| @opentelemetry/sdk-node | 0.213.0 |
-| @opentelemetry/sdk-trace-node | 2.7.0 |
-| @opentelemetry/semantic-conventions | 1.40.0 |
-| @parcel/watcher | 2.5.6 |
-| @rudderstack/rudder-sdk-node | 3.0.0 |
-| @sentry/node | 10.50.0 |
-| aws4 | 1.11.0 |
-| axios | 1.15.0 |
-| bcryptjs | 2.4.3 |
-| bull | 4.16.4 |
-| cache-manager | 5.2.3 |
-| change-case | 4.1.2 |
-| class-transformer | 0.5.1 |
-| class-validator | 0.14.0 |
-| compression | 1.8.1 |
-| convict | 6.2.5 |
-| cookie-parser | 1.4.7 |
-| csrf | 3.1.0 |
-| dotenv | 17.2.3 |
-| express | 5.1.0 |
-| express-handlebars | 8.0.1 |
-| express-openapi-validator | 5.5.3 |
-| express-prom-bundle | 8.0.0 |
-| express-rate-limit | 7.5.0 |
-| fast-glob | 3.2.12 |
-| flat | 5.0.2 |
-| flatted | 3.4.2 |
-| formidable | 3.5.4 |
-| handlebars | 4.7.9 |
-| helmet | 8.1.0 |
-| http-proxy-middleware | 3.0.5 |
-| infisical-node | 1.3.0 |
-| ioredis | 5.3.2 |
-| isbot | 3.6.13 |
-| json-diff | 1.0.6 |
-| jsonschema | 1.4.1 |
-| jsonwebtoken | 9.0.3 |
-| ldapts | 4.2.6 |
-| lodash | 4.18.1 |
-| luxon | 3.7.2 |
-| n8n-core | 2.17.3 |
-| n8n-editor-ui | 2.17.6 |
-| n8n-nodes-base | 2.17.3 |
-| n8n-workflow | 2.17.2 |
-| nanoid | 3.3.8 |
-| nodemailer | 7.0.11 |
-| oauth-1.0a | 2.2.6 |
-| open | 7.4.2 |
-| openid-client | 6.5.0 |
-| otpauth | 9.1.1 |
-| p-cancelable | 2.1.1 |
-| p-lazy | 3.1.0 |
-| pg | 8.17.0 |
-| picocolors | 1.0.1 |
-| pkce-challenge | 5.0.0 |
-| posthog-node | 3.2.1 |
-| prom-client | 15.1.3 |
-| psl | 1.9.0 |
-| raw-body | 3.0.0 |
-| reflect-metadata | 0.2.2 |
-| replacestream | 4.0.3 |
-| samlify | 2.10.0 |
-| semver | 7.5.4 |
-| shelljs | 0.8.5 |
-| simple-git | 3.32.3 |
-| source-map-support | 0.5.21 |
-| sqlite3 | 5.1.7 |
-| sshpk | 1.18.0 |
-| swagger-ui-express | 5.0.1 |
-| undici | 7.25.0 |
-| uuid | 10.0.0 |
-| validator | 13.15.22 |
-| ws | 8.17.1 |
-| xml2js | 0.6.2 |
-| xmllint-wasm | 3.0.1 |
-| xss | 1.0.15 |
-| yaml | 2.8.2 |
-| yargs-parser | 21.1.1 |
-| zod | 3.25.67 |
+| 套件 | 版本 | 用途 |
+|---|---|---|
+| @1password/connect | 1.4.2 | 整合 1Password Connect 秘密管理 |
+| @ai-sdk/anthropic | 2.0.61 | Anthropic AI 模型串接 |
+| @apidevtools/json-schema-ref-parser | 12.0.2 | 解析 JSON Schema 參照 |
+| @aws-sdk/client-secrets-manager | 3.808.0 | 串接 AWS Secrets Manager |
+| @azure/identity | 4.13.0 | Azure 身分驗證 |
+| @azure/keyvault-secrets | 4.8.0 | 串接 Azure Key Vault 秘密 |
+| @google-cloud/secret-manager | 5.6.0 | 串接 Google Secret Manager |
+| @modelcontextprotocol/sdk | 1.26.0 | MCP 伺服器與客戶端 SDK |
+| @n8n/ai-node-sdk | 0.8.0 | n8n AI 節點 SDK |
+| @n8n/ai-utilities | 0.11.0 | n8n AI 共用工具 |
+| @n8n/ai-workflow-builder | 1.17.3 | AI 工作流程建構功能 |
+| @n8n/api-types | 1.17.3 | n8n API 型別定義 |
+| @n8n/backend-common | 1.17.3 | n8n 後端共用元件 |
+| @n8n/chat-hub | 1.10.3 | n8n 聊天功能整合 |
+| @n8n/client-oauth2 | 1.1.1 | OAuth2 用戶端支援 |
+| @n8n/config | 2.16.0 | n8n 設定管理 |
+| @n8n/constants | 0.21.1 | n8n 共用常數 |
+| @n8n/db | 1.17.3 | n8n 資料庫層 |
+| @n8n/decorators | 1.17.3 | n8n 裝飾器工具 |
+| @n8n/di | 0.10.0 | n8n 依賴注入容器 |
+| @n8n/errors | 0.7.0 | n8n 錯誤型別 |
+| @n8n/instance-ai | 1.2.3 | n8n 執行個體 AI 功能 |
+| @n8n/n8n-nodes-langchain | 2.17.4 | LangChain 節點套件 |
+| @n8n/permissions | 0.56.0 | n8n 權限模型 |
+| @n8n/syslog-client | 1.2.0 | Syslog 日誌傳送 |
+| @n8n/task-runner | 2.17.3 | n8n 任務執行器 |
+| @n8n/typeorm | 0.3.20-16 | n8n 客製 TypeORM |
+| @n8n/utils | 1.28.1 | n8n 共用工具 |
+| @n8n/workflow-sdk | 0.10.2 | n8n 工作流程 SDK |
+| @n8n_io/ai-assistant-sdk | 1.21.0 | n8n AI 助理 SDK |
+| @n8n_io/license-sdk | 2.25.0 | n8n 授權驗證 SDK |
+| @opentelemetry/api | 1.9.1 | OpenTelemetry API 介面 |
+| @opentelemetry/exporter-trace-otlp-proto | 0.213.0 | OTLP trace 匯出器 |
+| @opentelemetry/instrumentation | 0.213.0 | OpenTelemetry 自動儀表化 |
+| @opentelemetry/resources | 2.7.0 | Telemetry 資源描述 |
+| @opentelemetry/sdk-node | 0.213.0 | Node.js telemetry SDK |
+| @opentelemetry/sdk-trace-node | 2.7.0 | Node.js trace SDK |
+| @opentelemetry/semantic-conventions | 1.40.0 | Telemetry 語意慣例 |
+| @parcel/watcher | 2.5.6 | 檔案變更監看 |
+| @rudderstack/rudder-sdk-node | 3.0.0 | RudderStack 事件追蹤 |
+| @sentry/node | 10.50.0 | Sentry 錯誤監控 |
+| aws4 | 1.11.0 | AWS Signature v4 簽章 |
+| axios | 1.15.0 | HTTP 用戶端 |
+| bcryptjs | 2.4.3 | 密碼雜湊處理 |
+| bull | 4.16.4 | Redis 佇列處理 |
+| cache-manager | 5.2.3 | 快取管理抽象層 |
+| change-case | 4.1.2 | 字串命名格式轉換 |
+| class-transformer | 0.5.1 | 物件與類別轉換 |
+| class-validator | 0.14.0 | 類別驗證規則 |
+| compression | 1.8.1 | HTTP 回應壓縮 |
+| convict | 6.2.5 | 設定結構與驗證 |
+| cookie-parser | 1.4.7 | Express cookie 解析 |
+| csrf | 3.1.0 | CSRF token 產生驗證 |
+| dotenv | 17.2.3 | 載入環境變數檔 |
+| express | 5.1.0 | HTTP API 服務框架 |
+| express-handlebars | 8.0.1 | Handlebars 視圖引擎 |
+| express-openapi-validator | 5.5.3 | OpenAPI 請求驗證 |
+| express-prom-bundle | 8.0.0 | Express Prometheus 指標 |
+| express-rate-limit | 7.5.0 | API rate limit 防護 |
+| fast-glob | 3.2.12 | 檔案樣式快速搜尋 |
+| flat | 5.0.2 | 物件扁平化處理 |
+| flatted | 3.4.2 | 循環 JSON 序列化 |
+| formidable | 3.5.4 | 表單與檔案上傳解析 |
+| handlebars | 4.7.9 | 樣板渲染引擎 |
+| helmet | 8.1.0 | HTTP 安全標頭 |
+| http-proxy-middleware | 3.0.5 | HTTP 代理中介層 |
+| infisical-node | 1.3.0 | Infisical 秘密管理整合 |
+| ioredis | 5.3.2 | Redis 用戶端 |
+| isbot | 3.6.13 | 搜尋引擎 bot 偵測 |
+| json-diff | 1.0.6 | JSON 差異比較 |
+| jsonschema | 1.4.1 | JSON Schema 驗證 |
+| jsonwebtoken | 9.0.3 | JWT 簽發與驗證 |
+| ldapts | 4.2.6 | LDAP 用戶端 |
+| lodash | 4.18.1 | 常用資料處理工具 |
+| luxon | 3.7.2 | 日期時間處理 |
+| n8n-core | 2.17.3 | n8n 核心執行功能 |
+| n8n-editor-ui | 2.17.6 | n8n 編輯器前端 |
+| n8n-nodes-base | 2.17.3 | n8n 內建節點 |
+| n8n-workflow | 2.17.2 | n8n 工作流程模型 |
+| nanoid | 3.3.8 | 短唯一 ID 產生 |
+| nodemailer | 7.0.11 | SMTP 郵件寄送 |
+| oauth-1.0a | 2.2.6 | OAuth 1.0a 簽章 |
+| open | 7.4.2 | 開啟系統瀏覽器或檔案 |
+| openid-client | 6.5.0 | OpenID Connect 用戶端 |
+| otpauth | 9.1.1 | TOTP/HOTP 驗證 |
+| p-cancelable | 2.1.1 | 可取消 Promise |
+| p-lazy | 3.1.0 | 延遲執行 Promise |
+| pg | 8.17.0 | PostgreSQL 用戶端驅動 |
+| picocolors | 1.0.1 | 終端彩色輸出 |
+| pkce-challenge | 5.0.0 | OAuth PKCE challenge 產生 |
+| posthog-node | 3.2.1 | PostHog 事件追蹤 |
+| prom-client | 15.1.3 | Prometheus 指標收集 |
+| psl | 1.9.0 | Public Suffix List 解析 |
+| raw-body | 3.0.0 | HTTP raw body 讀取 |
+| reflect-metadata | 0.2.2 | 裝飾器 metadata 支援 |
+| replacestream | 4.0.3 | 串流文字替換 |
+| samlify | 2.10.0 | SAML 身分驗證支援 |
+| semver | 7.5.4 | 語意版本解析 |
+| shelljs | 0.8.5 | Shell 命令工具 |
+| simple-git | 3.32.3 | Git 操作封裝 |
+| source-map-support | 0.5.21 | Source map 堆疊追蹤 |
+| sqlite3 | 5.1.7 | SQLite 資料庫驅動 |
+| sshpk | 1.18.0 | SSH 金鑰解析 |
+| swagger-ui-express | 5.0.1 | Swagger UI 路由 |
+| undici | 7.25.0 | 高效能 HTTP 用戶端 |
+| uuid | 10.0.0 | UUID 產生與解析 |
+| validator | 13.15.22 | 字串驗證工具 |
+| ws | 8.17.1 | WebSocket 用戶端與伺服器 |
+| xml2js | 0.6.2 | XML 與 JS 物件轉換 |
+| xmllint-wasm | 3.0.1 | WASM XML 驗證工具 |
+| xss | 1.0.15 | HTML XSS 過濾 |
+| yaml | 2.8.2 | YAML 解析與輸出 |
+| yargs-parser | 21.1.1 | CLI 參數解析 |
+| zod | 3.25.67 | TypeScript schema 驗證 |
 
 ### PostgreSQL bundle (`dist/postgres-offline-rhel9-x86_64/`)
 
@@ -207,43 +383,178 @@ util-linux-core, xml-common, xz, xz-libs, zlib
 
 直接安裝（seed，由 `prepare-pg-online.sh` 指定）：`postgresql18-server`, `postgresql18-contrib`, `postgresql18`, `pgvector_18`
 
-完整清單（依字母排序）：
+套件名稱清單（依字母排序；版本、架構、檔名與 SHA-256 以 bundle 內 `rpm-packages.tsv` 為準）：
 
-```
-acl, alternatives, audit-libs, basesystem, bash, bzip2-libs,
-ca-certificates, coreutils, coreutils-common, cracklib, cracklib-dicts,
-crypto-policies, cyrus-sasl-lib, dbus, dbus-broker, dbus-common, expat,
-filesystem, findutils, gawk, gawk-all-langpacks, gdbm-libs, glibc,
-glibc-common, glibc-gconv-extra, glibc-minimal-langpack, gmp, grep,
-groff-base, gzip, keyutils-libs, kmod-libs, krb5-libs, libacl, libattr,
-libblkid, libcap, libcap-ng, libcom_err, libdb, libeconf, libevent,
-libfdisk, libffi, libgcc, libgcrypt, libgpg-error, libicu, libmount,
-libpwquality, libseccomp, libselinux, libsemanage, libsepol, libsigsegv,
-libsmartcols, libstdc++, libtasn1, libtool-ltdl, liburing, libutempter,
-libuuid, libverto, libxcrypt, libxcrypt-compat, libxml2, libxslt,
-libzstd, lz4-libs, mpfr, ncurses, ncurses-base, ncurses-libs,
-numactl-libs, openldap, openssl, openssl-fips-provider, openssl-libs,
-p11-kit, p11-kit-trust, pam, pcre, pcre2, pcre2-syntax, perl-AutoLoader,
-perl-B, perl-Carp, perl-Class-Struct, perl-Data-Dumper, perl-Digest,
-perl-Digest-MD5, perl-Encode, perl-Errno, perl-Exporter, perl-Fcntl,
-perl-File-Basename, perl-File-Path, perl-File-Temp, perl-File-stat,
-perl-FileHandle, perl-Getopt-Long, perl-Getopt-Std, perl-HTTP-Tiny,
-perl-IO, perl-IO-Socket-IP, perl-IO-Socket-SSL, perl-IPC-Open3,
-perl-MIME-Base64, perl-Mozilla-CA, perl-NDBM_File, perl-Net-SSLeay,
-perl-POSIX, perl-PathTools, perl-Pod-Escapes, perl-Pod-Perldoc,
-perl-Pod-Simple, perl-Pod-Usage, perl-Scalar-List-Utils, perl-SelectSaver,
-perl-Socket, perl-Storable, perl-Symbol, perl-Term-ANSIColor,
-perl-Term-Cap, perl-Text-ParseWords, perl-Text-Tabs+Wrap, perl-Time-Local,
-perl-URI, perl-base, perl-constant, perl-if, perl-interpreter,
-perl-libnet, perl-libs, perl-mro, perl-overload, perl-overloading,
-perl-parent, perl-podlators, perl-subs, perl-vars, pgvector_18,
-postgresql18, postgresql18-contrib, postgresql18-libs, postgresql18-server,
-python-unversioned-command, python3, python3-libs, python3-pip-wheel,
-python3-setuptools-wheel, readline, rocky-gpg-keys, rocky-release,
-rocky-repos, sed, setup, shadow-utils, sqlite-libs, systemd, systemd-libs,
-systemd-pam, systemd-rpm-macros, tzdata, util-linux, util-linux-core,
-xz-libs, zlib
-```
+| 套件 | 用途 |
+|---|---|
+| acl | 檔案 ACL 權限工具 |
+| alternatives | 管理系統替代命令連結 |
+| audit-libs | Linux audit 稽核程式庫 |
+| basesystem | Rocky/RHEL 基礎系統定義 |
+| bash | Shell 指令執行環境 |
+| bzip2-libs | bzip2 壓縮格式程式庫 |
+| ca-certificates | 信任根憑證集合 |
+| coreutils | 基本檔案與文字命令 |
+| coreutils-common | coreutils 共用資料檔 |
+| cracklib | 密碼強度檢查程式庫 |
+| cracklib-dicts | 密碼檢查字典資料 |
+| crypto-policies | 系統加密政策設定 |
+| cyrus-sasl-lib | SASL 認證支援程式庫 |
+| dbus | 系統服務訊息匯流排 |
+| dbus-broker | D-Bus 訊息代理服務 |
+| dbus-common | D-Bus 共用設定檔 |
+| expat | XML 解析程式庫 |
+| filesystem | 基本檔案系統目錄 |
+| findutils | 檔案搜尋工具 |
+| gawk | AWK 文字處理工具 |
+| gawk-all-langpacks | gawk 多語系支援資料 |
+| gdbm-libs | GNU dbm 資料庫程式庫 |
+| glibc | GNU C 標準程式庫 |
+| glibc-common | glibc 共用資料與工具 |
+| glibc-gconv-extra | glibc 額外字元轉換模組 |
+| glibc-minimal-langpack | glibc 最小語系資料 |
+| gmp | 任意精度數學程式庫 |
+| grep | 文字搜尋工具 |
+| groff-base | man page 排版工具 |
+| gzip | gzip 壓縮工具 |
+| keyutils-libs | Linux keyring 程式庫 |
+| kmod-libs | Kernel module 管理程式庫 |
+| krb5-libs | Kerberos 認證程式庫 |
+| libacl | ACL 權限程式庫 |
+| libattr | 延伸屬性程式庫 |
+| libblkid | 區塊裝置識別程式庫 |
+| libcap | Linux capability 程式庫 |
+| libcap-ng | Capability 管理程式庫 |
+| libcom_err | 通用錯誤處理程式庫 |
+| libdb | Berkeley DB 程式庫 |
+| libeconf | 設定檔解析程式庫 |
+| libevent | 事件通知程式庫 |
+| libfdisk | 磁碟分割程式庫 |
+| libffi | 外部函式介面程式庫 |
+| libgcc | GCC 執行時期程式庫 |
+| libgcrypt | 通用加密程式庫 |
+| libgpg-error | GnuPG 錯誤碼程式庫 |
+| libicu | Unicode 與國際化程式庫 |
+| libmount | 檔案系統掛載程式庫 |
+| libpwquality | 密碼品質檢查程式庫 |
+| libseccomp | 系統呼叫過濾程式庫 |
+| libselinux | SELinux 執行時期程式庫 |
+| libsemanage | SELinux 政策管理程式庫 |
+| libsepol | SELinux 政策程式庫 |
+| libsigsegv | 記憶體錯誤處理程式庫 |
+| libsmartcols | 表格輸出格式程式庫 |
+| libstdc++ | C++ 標準程式庫 |
+| libtasn1 | ASN.1 解析程式庫 |
+| libtool-ltdl | 動態載入模組程式庫 |
+| liburing | Linux io_uring 程式庫 |
+| libutempter | 終端登入記錄程式庫 |
+| libuuid | UUID 產生與解析程式庫 |
+| libverto | 事件迴圈抽象程式庫 |
+| libxcrypt | 密碼雜湊程式庫 |
+| libxcrypt-compat | 舊版密碼雜湊相容庫 |
+| libxml2 | XML 解析程式庫 |
+| libxslt | XSLT 轉換程式庫 |
+| libzstd | Zstandard 壓縮程式庫 |
+| lz4-libs | LZ4 壓縮程式庫 |
+| mpfr | 高精度浮點數程式庫 |
+| ncurses | 終端文字介面工具 |
+| ncurses-base | 終端能力資料庫 |
+| ncurses-libs | 終端控制程式庫 |
+| numactl-libs | NUMA 記憶體控制程式庫 |
+| openldap | LDAP 用戶端程式庫 |
+| openssl | TLS/SSL 憑證與加密工具 |
+| openssl-fips-provider | OpenSSL FIPS 加密模組 |
+| openssl-libs | OpenSSL 執行時期程式庫 |
+| p11-kit | PKCS#11 模組管理 |
+| p11-kit-trust | 系統信任憑證整合 |
+| pam | PAM 身分驗證模組 |
+| pcre | Perl 相容正規表示式庫 |
+| pcre2 | PCRE2 正規表示式庫 |
+| pcre2-syntax | PCRE2 語法文件 |
+| perl-AutoLoader | Perl 延遲載入模組 |
+| perl-B | Perl 編譯器後端模組 |
+| perl-Carp | Perl 錯誤回報模組 |
+| perl-Class-Struct | Perl 結構類別模組 |
+| perl-Data-Dumper | Perl 資料序列化模組 |
+| perl-Digest | Perl digest 基礎模組 |
+| perl-Digest-MD5 | Perl MD5 雜湊模組 |
+| perl-Encode | Perl 字元編碼模組 |
+| perl-Errno | Perl 系統錯誤碼模組 |
+| perl-Exporter | Perl 符號匯出模組 |
+| perl-Fcntl | Perl 檔案控制模組 |
+| perl-File-Basename | Perl 路徑名稱處理模組 |
+| perl-File-Path | Perl 目錄建立刪除模組 |
+| perl-File-Temp | Perl 暫存檔模組 |
+| perl-File-stat | Perl 檔案狀態模組 |
+| perl-FileHandle | Perl 檔案控制代碼模組 |
+| perl-Getopt-Long | Perl 長參數解析模組 |
+| perl-Getopt-Std | Perl 標準參數解析模組 |
+| perl-HTTP-Tiny | Perl 輕量 HTTP 用戶端 |
+| perl-IO | Perl 輸入輸出模組 |
+| perl-IO-Socket-IP | Perl IP socket 模組 |
+| perl-IO-Socket-SSL | Perl SSL socket 模組 |
+| perl-IPC-Open3 | Perl 子程序通訊模組 |
+| perl-MIME-Base64 | Perl Base64 編解碼模組 |
+| perl-Mozilla-CA | Perl Mozilla CA 憑證 |
+| perl-NDBM_File | Perl NDBM 檔案模組 |
+| perl-Net-SSLeay | Perl OpenSSL 綁定模組 |
+| perl-POSIX | Perl POSIX 介面模組 |
+| perl-PathTools | Perl 路徑工具模組 |
+| perl-Pod-Escapes | Perl POD escape 模組 |
+| perl-Pod-Perldoc | Perl 文件檢視工具 |
+| perl-Pod-Simple | Perl POD 解析模組 |
+| perl-Pod-Usage | Perl usage 文件模組 |
+| perl-Scalar-List-Utils | Perl scalar/list 工具模組 |
+| perl-SelectSaver | Perl select 狀態保存模組 |
+| perl-Socket | Perl socket 網路模組 |
+| perl-Storable | Perl 資料持久化模組 |
+| perl-Symbol | Perl symbol 操作模組 |
+| perl-Term-ANSIColor | Perl 終端色彩模組 |
+| perl-Term-Cap | Perl 終端能力模組 |
+| perl-Text-ParseWords | Perl shell 文字解析模組 |
+| perl-Text-Tabs+Wrap | Perl 文字縮排換行模組 |
+| perl-Time-Local | Perl 本地時間轉換模組 |
+| perl-URI | Perl URI 解析模組 |
+| perl-base | Perl 基礎模組集合 |
+| perl-constant | Perl 常數宣告模組 |
+| perl-if | Perl 條件載入模組 |
+| perl-interpreter | Perl 執行環境 |
+| perl-libnet | Perl 網路協定模組 |
+| perl-libs | Perl 核心程式庫 |
+| perl-mro | Perl 方法解析順序模組 |
+| perl-overload | Perl 運算子重載模組 |
+| perl-overloading | Perl 重載控制模組 |
+| perl-parent | Perl 父類別宣告模組 |
+| perl-podlators | Perl POD 轉換工具 |
+| perl-subs | Perl 子程序預宣告模組 |
+| perl-vars | Perl 全域變數宣告模組 |
+| pgvector_18 | PostgreSQL 向量搜尋擴充 |
+| postgresql18 | PostgreSQL 18 用戶端工具 |
+| postgresql18-contrib | PostgreSQL 18 擴充模組 |
+| postgresql18-libs | PostgreSQL 18 共用程式庫 |
+| postgresql18-server | PostgreSQL 18 伺服器 |
+| python-unversioned-command | 提供未帶版本的 python 命令 |
+| python3 | Python 3 執行環境 |
+| python3-libs | Python 3 標準程式庫 |
+| python3-pip-wheel | pip 安裝工具 wheel |
+| python3-setuptools-wheel | setuptools 建置工具 wheel |
+| readline | 互動式命令列編輯庫 |
+| rocky-gpg-keys | Rocky Linux 套件簽章金鑰 |
+| rocky-release | Rocky Linux 發行版資訊 |
+| rocky-repos | Rocky Linux yum repo 設定 |
+| sed | 串流文字編輯工具 |
+| setup | 系統基礎設定檔 |
+| shadow-utils | 系統帳號管理工具 |
+| sqlite-libs | SQLite 資料庫程式庫 |
+| systemd | 系統服務管理器 |
+| systemd-libs | systemd 共用程式庫 |
+| systemd-pam | systemd PAM 整合模組 |
+| systemd-rpm-macros | systemd RPM 打包巨集 |
+| tzdata | 時區資料 |
+| util-linux | Linux 系統管理工具集 |
+| util-linux-core | util-linux 核心工具 |
+| xz-libs | xz 壓縮程式庫 |
+| zlib | zlib 壓縮程式庫 |
 
 ## 檔案
 
