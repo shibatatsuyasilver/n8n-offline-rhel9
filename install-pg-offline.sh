@@ -65,14 +65,31 @@ load_manifest() {
   PG_BIN="/usr/pgsql-${PG_MAJOR}/bin"
 }
 
-# Reject bundles that contain RPMs known to drift away from the RHEL 9.6 target.
+# Reject bundles that contain RPMs known to drift away from the target RHEL version.
 validate_rpm_manifest() {
   local rpm_manifest="${BUNDLE_DIR}/${RPM_PACKAGES_MANIFEST:-rpm-packages.tsv}"
   [[ -s "$rpm_manifest" ]] || die "RPM package manifest not found: $rpm_manifest"
 
-  if grep -Eq '(el9_7|rhel9\.7)' "$rpm_manifest"; then
-    grep -E '(el9_7|rhel9\.7)' "$rpm_manifest" >&2 || true
-    die "Bundle contains RHEL/Rocky 9.7 RPMs; rebuild it for RHEL ${TARGET_RHEL_MINOR:-9.6}"
+  local target_minor="${TARGET_RHEL_MINOR:-9.2}"
+  target_minor="${target_minor##*.}"
+  if awk -v limit="$target_minor" -F'\t' '
+    NR > 1 {
+      str = $0;
+      while (match(str, /el9_[0-9]+/)) {
+        val = substr(str, RSTART + 4, RLENGTH - 4);
+        if (val + 0 > limit) { found = 1; print $0; }
+        str = substr(str, RSTART + RLENGTH);
+      }
+      str = $0;
+      while (match(str, /rhel9[._][0-9]+/)) {
+        val = substr(str, RSTART + 6, RLENGTH - 6);
+        if (val + 0 > limit) { found = 1; print $0; }
+        str = substr(str, RSTART + RLENGTH);
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$rpm_manifest" >&2; then
+    die "Bundle contains RHEL/Rocky packages newer than 9.${target_minor}; rebuild it for RHEL ${TARGET_RHEL_MINOR:-9.2}"
   fi
 
   if awk -F'\t' 'NR > 1 && $1 ~ /^(rocky-release|rocky-repos|rocky-gpg-keys|rocky-logos.*)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$rpm_manifest" >&2; then

@@ -10,7 +10,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configure the target RHEL minor release and output bundle name.
-TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.2}"
 BUNDLE_NAME="${BUNDLE_NAME:-n8n-offline-rhel${TARGET_RHEL_MINOR}-x86_64}"
 DIST_ROOT="${DIST_ROOT:-${SCRIPT_DIR}/dist}"
 BUNDLE_DIR="${BUNDLE_DIR:-${DIST_ROOT}/${BUNDLE_NAME}}"
@@ -62,7 +62,7 @@ Options:
   -h, --help            Show this help message.
 
 Environment variables:
-  TARGET_RHEL_MINOR     Target RHEL minor release. Defaults to 9.6.
+  TARGET_RHEL_MINOR     Target RHEL minor release. Defaults to 9.2.
   RHEL_IMAGE            Preparation/test image. Defaults to UBI for TARGET_RHEL_MINOR.
   ROCKY_VAULT_BASE      Rocky vault base URL. Defaults to Rocky TARGET_RHEL_MINOR.
 USAGE
@@ -91,14 +91,30 @@ verify_sha256() {
   [[ "$actual" == "$1" ]] || die "$2 checksum mismatch: expected $1, got $actual"
 }
 
-# Reject RPM sets that would drift away from the target RHEL 9.6 runtime.
+# Reject RPM sets that would drift away from the target RHEL runtime.
 validate_rpm_manifest() {
   local manifest="${BUNDLE_DIR}/rpm-packages.tsv"
   [[ -s "$manifest" ]] || die "RPM package manifest not found: $manifest"
 
-  if grep -Eq '(el9_7|rhel9\.7)' "$manifest"; then
-    grep -E '(el9_7|rhel9\.7)' "$manifest" >&2 || true
-    die "RPM manifest contains RHEL/Rocky 9.7 packages; rebuild with target ${TARGET_RHEL_MINOR} repos"
+  local target_minor="${TARGET_RHEL_MINOR##*.}"
+  if awk -v limit="$target_minor" -F'\t' '
+    NR > 1 {
+      str = $0;
+      while (match(str, /el9_[0-9]+/)) {
+        val = substr(str, RSTART + 4, RLENGTH - 4);
+        if (val + 0 > limit) { found = 1; print $0; }
+        str = substr(str, RSTART + RLENGTH);
+      }
+      str = $0;
+      while (match(str, /rhel9[._][0-9]+/)) {
+        val = substr(str, RSTART + 6, RLENGTH - 6);
+        if (val + 0 > limit) { found = 1; print $0; }
+        str = substr(str, RSTART + RLENGTH);
+      }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$manifest" >&2; then
+    die "RPM manifest contains packages from a newer RHEL release (> 9.${target_minor}); rebuild with target ${TARGET_RHEL_MINOR} repos"
   fi
 
   if awk -F'\t' 'NR > 1 && $1 ~ /^(rocky-release|rocky-repos|rocky-gpg-keys|rocky-logos.*)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$manifest" >&2; then

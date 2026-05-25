@@ -10,11 +10,11 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configure offline bundle paths for n8n and PostgreSQL.
-N8N_BUNDLE="${N8N_BUNDLE:-${SCRIPT_DIR}/dist/n8n-offline-rhel9.6-x86_64}"
-PG_BUNDLE="${PG_BUNDLE:-${SCRIPT_DIR}/dist/postgres-offline-rhel9-x86_64}"
+N8N_BUNDLE="${N8N_BUNDLE:-${SCRIPT_DIR}/dist/n8n-offline-rhel9.2-x86_64}"
+PG_BUNDLE="${PG_BUNDLE:-${SCRIPT_DIR}/dist/postgres-offline-rhel9.2-x86_64}"
 
 # Container base image and platform.
-TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.2}"
 RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 

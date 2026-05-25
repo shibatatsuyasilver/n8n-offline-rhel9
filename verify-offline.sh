@@ -13,12 +13,12 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default n8n bundle directory.
-DEFAULT_BUNDLE_DIR="${SCRIPT_DIR}/dist/n8n-offline-rhel9.6-x86_64"
+DEFAULT_BUNDLE_DIR="${SCRIPT_DIR}/dist/n8n-offline-rhel9.2-x86_64"
 BUNDLE_DIR="${DEFAULT_BUNDLE_DIR}"
 
 # Test images.
 PG_IMAGE="postgres:18"
-TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.2}"
 RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 

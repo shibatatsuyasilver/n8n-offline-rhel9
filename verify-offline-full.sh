@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end verifier for both n8n and PostgreSQL offline bundles.
-# Uses an internal Docker network with two UBI 9.6 containers:
+# Uses an internal Docker network with two UBI 9.2 containers:
 #   - PG host: mounts the PG bundle and runs install-pg-offline.sh --verify-no-systemd.
 #   - n8n host: mounts the n8n bundle and runs install-offline.sh --verify-no-systemd.
 # This simulates two offline RHEL 9 hosts where n8n connects to external PG.
@@ -12,13 +12,13 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Default n8n and PostgreSQL bundle directories.
-DEFAULT_N8N_BUNDLE="${SCRIPT_DIR}/dist/n8n-offline-rhel9.6-x86_64"
-DEFAULT_PG_BUNDLE="${SCRIPT_DIR}/dist/postgres-offline-rhel9-x86_64"
+DEFAULT_N8N_BUNDLE="${SCRIPT_DIR}/dist/n8n-offline-rhel9.2-x86_64"
+DEFAULT_PG_BUNDLE="${SCRIPT_DIR}/dist/postgres-offline-rhel9.2-x86_64"
 N8N_BUNDLE="${DEFAULT_N8N_BUNDLE}"
 PG_BUNDLE="${DEFAULT_PG_BUNDLE}"
 
 # Test image and platform.
-TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.2}"
 RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
