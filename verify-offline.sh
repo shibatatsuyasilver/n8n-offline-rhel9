@@ -18,8 +18,9 @@ BUNDLE_DIR="${DEFAULT_BUNDLE_DIR}"
 
 # Test images.
 PG_IMAGE="postgres:18"
-RHEL_IMAGE="registry.access.redhat.com/ubi9/ubi"
-DOCKER_PLATFORM="linux/amd64"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
 # Internal Docker network and container names. Include the PID to avoid clashes.
 NETWORK_NAME="n8n-offline-verify-$$"
@@ -106,7 +107,7 @@ start_pg() {
 
 # Mount the n8n bundle into a test container and run the offline installer.
 run_install() {
-  log "Running install-offline.sh --verify-no-systemd in a ubi9 container..."
+  log "Running install-offline.sh --verify-no-systemd in a UBI ${TARGET_RHEL_MINOR} container..."
   docker run --rm --name "$INSTALL_CONTAINER" --network "$NETWORK_NAME" \
     --platform "$DOCKER_PLATFORM" \
     -v "$BUNDLE_DIR:/bundle:ro" \

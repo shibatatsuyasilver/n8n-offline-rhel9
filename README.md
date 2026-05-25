@@ -20,9 +20,11 @@
 | Node.js | v22.22.2 |
 | PostgreSQL | 18 (PGDG yum repo) |
 | pgvector | PGDG `pgvector_18` (安裝後在 n8n DB 自動 `CREATE EXTENSION vector`) |
-| 目標 OS | RHEL 9.x x86_64 |
+| 目標 OS | RHEL 9.6 x86_64 |
 
 完整 RPM 清單以各 bundle 內的 `rpm-packages.tsv` 為準。
+
+RPM 來源鎖定為 Rocky Linux 9.6 vault + PGDG `rhel-9.6`。Rocky 9.6 可作為 RHEL 9.6 相容來源，但不要使用浮動的 `rockylinux:9` 產包，否則可能抓到 9.7 的 OpenSSL / OpenSSH / systemd 套件。
 
 ## 套件清單
 
@@ -34,9 +36,11 @@
 
 - Node.js v22.22.2 — 來源 tarball `node-v22.22.2-linux-x64.tar.xz`
 
-#### RPM 套件（241 個 RPM 檔，213 個套件名稱，含遞移相依）
+#### RPM 套件（含遞移相依）
 
-直接安裝（seed，由 `prepare-online.sh` 指定）：`ca-certificates`, `tzdata`, `curl`, `openssl`, `git`, `GraphicsMagick`, `fontconfig`, `xz`, `nginx`
+直接安裝（seed，由 `prepare-online.sh` 指定）：`ca-certificates`, `tzdata`, `curl-minimal`, `openssl`, `GraphicsMagick`, `fontconfig`, `xz`, `nginx`
+
+`git` 不再列入系統 RPM seed，因為 RHEL/Rocky 9.6 的 `git-core` 會硬相依 `openssh-clients`。為避免離線安裝替換主機 SSH/OpenSSL 套件，需要 git 時請先在 RHEL 主機用原生 repo 安裝。
 
 套件名稱清單（依字母排序；版本、架構、檔名與 SHA-256 以 bundle 內 `rpm-packages.tsv` 為準）：
 
@@ -55,25 +59,20 @@
 | cracklib | 密碼強度檢查程式庫 |
 | cracklib-dicts | 密碼檢查字典資料 |
 | crypto-policies | 系統加密政策設定 |
-| curl | HTTP/HTTPS 下載與測試工具 |
+| curl-minimal | HTTP/HTTPS 下載與測試工具 |
 | cyrus-sasl-lib | SASL 認證支援程式庫 |
 | dbus | 系統服務訊息匯流排 |
 | dbus-broker | D-Bus 訊息代理服務 |
 | dbus-common | D-Bus 共用設定檔 |
 | dejavu-sans-fonts | DejaVu Sans 字型 |
-| emacs-filesystem | Emacs 套件目錄結構 |
 | expat | XML 解析程式庫 |
 | filesystem | 基本檔案系統目錄 |
-| findutils | 檔案搜尋工具 |
 | fontconfig | 字型探索與設定工具 |
 | fonts-filesystem | 系統字型目錄結構 |
 | freetype | 字型渲染程式庫 |
 | gawk | AWK 文字處理工具 |
 | gawk-all-langpacks | gawk 多語系支援資料 |
 | gdbm-libs | GNU dbm 資料庫程式庫 |
-| git | Git 版本控制工具 |
-| git-core | Git 核心命令 |
-| git-core-doc | Git 文件頁面 |
 | glib2 | GLib 基礎工具程式庫 |
 | glibc | GNU C 標準程式庫 |
 | glibc-common | glibc 共用資料與工具 |
@@ -83,7 +82,6 @@
 | gnutls | TLS/SSL 加密通訊程式庫 |
 | graphite2 | Graphite 字型排版程式庫 |
 | grep | 文字搜尋工具 |
-| groff-base | man page 排版工具 |
 | gzip | gzip 壓縮工具 |
 | harfbuzz | OpenType 文字塑形程式庫 |
 | jasper-libs | JPEG-2000 影像程式庫 |
@@ -93,7 +91,6 @@
 | krb5-libs | Kerberos 認證程式庫 |
 | langpacks-core-font-en | 英文核心字型支援 |
 | lcms2 | 色彩管理程式庫 |
-| less | 終端分頁檢視工具 |
 | libICE | X11 ICE 連線程式庫 |
 | libSM | X11 session 管理程式庫 |
 | libX11 | X11 用戶端程式庫 |
@@ -106,16 +103,13 @@
 | libbrotli | Brotli 壓縮程式庫 |
 | libcap | Linux capability 程式庫 |
 | libcap-ng | Capability 管理程式庫 |
-| libcbor | CBOR 編碼程式庫 |
 | libcom_err | 通用錯誤處理程式庫 |
 | libcurl | curl 用戶端程式庫 |
 | libdb | Berkeley DB 程式庫 |
 | libeconf | 設定檔解析程式庫 |
-| libedit | 命令列編輯程式庫 |
 | libevent | 事件通知程式庫 |
 | libfdisk | 磁碟分割程式庫 |
 | libffi | 外部函式介面程式庫 |
-| libfido2 | FIDO2/WebAuthn 程式庫 |
 | libgcc | GCC 執行時期程式庫 |
 | libgcrypt | 通用加密程式庫 |
 | libgomp | OpenMP 執行時期程式庫 |
@@ -152,7 +146,6 @@
 | logrotate | 日誌輪替管理工具 |
 | lz4-libs | LZ4 壓縮程式庫 |
 | mpfr | 高精度浮點數程式庫 |
-| ncurses | 終端文字介面工具 |
 | ncurses-base | 終端能力資料庫 |
 | ncurses-libs | 終端控制程式庫 |
 | nettle | 低階加密程式庫 |
@@ -160,10 +153,7 @@
 | nginx-core | nginx 核心服務程式 |
 | nginx-filesystem | nginx 目錄與使用者設定 |
 | openldap | LDAP 用戶端程式庫 |
-| openssh | SSH 基礎工具 |
-| openssh-clients | SSH 用戶端工具 |
 | openssl | TLS/SSL 憑證與加密工具 |
-| openssl-fips-provider | OpenSSL FIPS 加密模組 |
 | openssl-libs | OpenSSL 執行時期程式庫 |
 | p11-kit | PKCS#11 模組管理 |
 | p11-kit-trust | 系統信任憑證整合 |
@@ -171,76 +161,10 @@
 | pcre | Perl 相容正規表示式庫 |
 | pcre2 | PCRE2 正規表示式庫 |
 | pcre2-syntax | PCRE2 語法文件 |
-| perl-AutoLoader | Perl 延遲載入模組 |
-| perl-B | Perl 編譯器後端模組 |
-| perl-Carp | Perl 錯誤回報模組 |
-| perl-Class-Struct | Perl 結構類別模組 |
-| perl-Data-Dumper | Perl 資料序列化模組 |
-| perl-Digest | Perl digest 基礎模組 |
-| perl-Digest-MD5 | Perl MD5 雜湊模組 |
-| perl-DynaLoader | Perl 動態載入模組 |
-| perl-Encode | Perl 字元編碼模組 |
-| perl-Errno | Perl 系統錯誤碼模組 |
-| perl-Error | Perl 例外處理模組 |
-| perl-Exporter | Perl 符號匯出模組 |
-| perl-Fcntl | Perl 檔案控制模組 |
-| perl-File-Basename | Perl 路徑名稱處理模組 |
-| perl-File-Find | Perl 檔案搜尋模組 |
-| perl-File-Path | Perl 目錄建立刪除模組 |
-| perl-File-Temp | Perl 暫存檔模組 |
-| perl-File-stat | Perl 檔案狀態模組 |
-| perl-FileHandle | Perl 檔案控制代碼模組 |
-| perl-Getopt-Long | Perl 長參數解析模組 |
-| perl-Getopt-Std | Perl 標準參數解析模組 |
-| perl-Git | Git 的 Perl 整合模組 |
-| perl-HTTP-Tiny | Perl 輕量 HTTP 用戶端 |
-| perl-IO | Perl 輸入輸出模組 |
-| perl-IO-Socket-IP | Perl IP socket 模組 |
-| perl-IO-Socket-SSL | Perl SSL socket 模組 |
-| perl-IPC-Open3 | Perl 子程序通訊模組 |
-| perl-MIME-Base64 | Perl Base64 編解碼模組 |
-| perl-Mozilla-CA | Perl Mozilla CA 憑證 |
-| perl-NDBM_File | Perl NDBM 檔案模組 |
-| perl-Net-SSLeay | Perl OpenSSL 綁定模組 |
-| perl-POSIX | Perl POSIX 介面模組 |
-| perl-PathTools | Perl 路徑工具模組 |
-| perl-Pod-Escapes | Perl POD escape 模組 |
-| perl-Pod-Perldoc | Perl 文件檢視工具 |
-| perl-Pod-Simple | Perl POD 解析模組 |
-| perl-Pod-Usage | Perl usage 文件模組 |
-| perl-Scalar-List-Utils | Perl scalar/list 工具模組 |
-| perl-SelectSaver | Perl select 狀態保存模組 |
-| perl-Socket | Perl socket 網路模組 |
-| perl-Storable | Perl 資料持久化模組 |
-| perl-Symbol | Perl symbol 操作模組 |
-| perl-Term-ANSIColor | Perl 終端色彩模組 |
-| perl-Term-Cap | Perl 終端能力模組 |
-| perl-TermReadKey | Perl 終端按鍵讀取模組 |
-| perl-Text-ParseWords | Perl shell 文字解析模組 |
-| perl-Text-Tabs+Wrap | Perl 文字縮排換行模組 |
-| perl-Time-Local | Perl 本地時間轉換模組 |
-| perl-URI | Perl URI 解析模組 |
-| perl-base | Perl 基礎模組集合 |
-| perl-constant | Perl 常數宣告模組 |
-| perl-if | Perl 條件載入模組 |
-| perl-interpreter | Perl 執行環境 |
-| perl-lib | Perl 函式庫路徑支援 |
-| perl-libnet | Perl 網路協定模組 |
-| perl-libs | Perl 核心程式庫 |
-| perl-mro | Perl 方法解析順序模組 |
-| perl-overload | Perl 運算子重載模組 |
-| perl-overloading | Perl 重載控制模組 |
-| perl-parent | Perl 父類別宣告模組 |
-| perl-podlators | Perl POD 轉換工具 |
-| perl-subs | Perl 子程序預宣告模組 |
-| perl-vars | Perl 全域變數宣告模組 |
 | popt | 命令列選項解析程式庫 |
 | publicsuffix-list-dafsa | 網域後綴清單資料 |
 | readline | 互動式命令列編輯庫 |
-| rocky-gpg-keys | Rocky Linux 套件簽章金鑰 |
-| rocky-logos-httpd | Rocky HTTPD 預設頁素材 |
-| rocky-release | Rocky Linux 發行版資訊 |
-| rocky-repos | Rocky Linux yum repo 設定 |
+| redhat-logos-httpd | Red Hat HTTPD 預設頁素材 |
 | sed | 串流文字編輯工具 |
 | setup | 系統基礎設定檔 |
 | shadow-utils | 系統帳號管理工具 |
@@ -377,9 +301,9 @@
 
 ### PostgreSQL bundle (`dist/postgres-offline-rhel9-x86_64/`)
 
-**PostgreSQL 版本**：18（PGDG yum repo，安裝為 18.3-1PGDG.rhel9.7）
+**PostgreSQL 版本**：18（PGDG `rhel-9.6` yum repo；實際版本以 `rpm-packages.tsv` 為準）
 
-#### RPM 套件（168 個，含遞移相依）
+#### RPM 套件（含遞移相依）
 
 直接安裝（seed，由 `prepare-pg-online.sh` 指定）：`postgresql18-server`, `postgresql18-contrib`, `postgresql18`, `pgvector_18`
 
@@ -405,7 +329,6 @@
 | dbus-common | D-Bus 共用設定檔 |
 | expat | XML 解析程式庫 |
 | filesystem | 基本檔案系統目錄 |
-| findutils | 檔案搜尋工具 |
 | gawk | AWK 文字處理工具 |
 | gawk-all-langpacks | gawk 多語系支援資料 |
 | gdbm-libs | GNU dbm 資料庫程式庫 |
@@ -463,7 +386,6 @@
 | numactl-libs | NUMA 記憶體控制程式庫 |
 | openldap | LDAP 用戶端程式庫 |
 | openssl | TLS/SSL 憑證與加密工具 |
-| openssl-fips-provider | OpenSSL FIPS 加密模組 |
 | openssl-libs | OpenSSL 執行時期程式庫 |
 | p11-kit | PKCS#11 模組管理 |
 | p11-kit-trust | 系統信任憑證整合 |
@@ -539,9 +461,6 @@
 | python3-pip-wheel | pip 安裝工具 wheel |
 | python3-setuptools-wheel | setuptools 建置工具 wheel |
 | readline | 互動式命令列編輯庫 |
-| rocky-gpg-keys | Rocky Linux 套件簽章金鑰 |
-| rocky-release | Rocky Linux 發行版資訊 |
-| rocky-repos | Rocky Linux yum repo 設定 |
 | sed | 串流文字編輯工具 |
 | setup | 系統基礎設定檔 |
 | shadow-utils | 系統帳號管理工具 |
@@ -562,13 +481,13 @@
 - `install-offline.sh` — 自動拷貝進 n8n bundle，於離線 RHEL 9 host A 執行
 - `prepare-pg-online.sh` — 在連網主機產出 **PostgreSQL 18** bundle (`dist/postgres-offline-rhel9-x86_64/`)
 - `install-pg-offline.sh` — 自動拷貝進 PG bundle，於離線 RHEL 9 host B 執行
-- `verify-offline.sh` — 在開發機用 `docker network --internal` 起 `postgres:18` + `ubi9` 跨容器跑一次 `install-offline.sh --verify-no-systemd`，端到端驗證
+- `verify-offline.sh` — 在開發機用 `docker network --internal` 起 `postgres:18` + UBI 9.6 跨容器跑一次 `install-offline.sh --verify-no-systemd`，端到端驗證
 
 ## 1. 取得 bundle
 
 兩個選項：
 
-### 1a. 直接下載預先建構好的 bundle（離線主機需要 RHEL 9.x / x86_64）
+### 1a. 直接下載預先建構好的 bundle（離線主機需要 RHEL 9.6 / x86_64）
 
 從 [Releases](https://github.com/shibatatsuyasilver/n8n-offline-rhel9/releases) 取得：
 
@@ -582,7 +501,7 @@ tar -xf postgres-offline-rhel9-x86_64.tar
 
 ### 1b. 自己從原始碼建構
 
-需要：本機可用 `docker`（拉 rockylinux:9 / postgres:18 映像，並在容器內 `dnf download` / `npm install`）。
+需要：本機可用 `docker`（拉 `registry.access.redhat.com/ubi9/ubi:9.6` / `postgres:18` 映像，並在容器內 `dnf download` / `npm install`）。RPM 下載來源固定為 Rocky 9.6 vault；PG 來源固定為 PGDG `rhel-9.6` repo。
 
 ```bash
 ./prepare-online.sh        # → dist/n8n-offline-rhel9.6-x86_64/
@@ -596,6 +515,26 @@ tar -xf postgres-offline-rhel9-x86_64.tar
 ./prepare-online.sh --keep-existing --reuse-n8n-prefix
 ./prepare-pg-online.sh --keep-existing
 ```
+
+可覆寫的相容性變數：
+
+```bash
+TARGET_RHEL_MINOR=9.6
+RHEL_IMAGE=registry.access.redhat.com/ubi9/ubi:9.6
+ROCKY_VAULT_BASE=https://download.rockylinux.org/vault/rocky/9.6
+PGDG_RHEL_MINOR=9.6
+```
+
+重建後請確認 manifest 沒有漂到 9.7，也沒有 Rocky release identity package。`nginx-core` 需要的 `system-logos-httpd` 由 UBI 的 `redhat-logos-httpd` 提供，不使用 `rocky-logos*`。n8n bundle 也不應包含 OpenSSH 套件，避免離線安裝影響既有 SSH 服務：
+
+```bash
+rg 'el9_7|rhel9\.7|rocky-(release|repos|gpg-keys|logos)' \
+  dist/n8n-offline-rhel9.6-x86_64/rpm-packages.tsv \
+  dist/postgres-offline-rhel9-x86_64/rpm-packages.tsv
+rg '^openssh(-clients|-server)?\t' dist/n8n-offline-rhel9.6-x86_64/rpm-packages.tsv
+```
+
+以上命令應該沒有輸出；prepare script 也會在偵測到這些項目時直接失敗。
 
 ## 2. 離線 host B：安裝 PostgreSQL 18
 
@@ -657,6 +596,65 @@ sudo ./install-pg-offline.sh
    sudo -u postgres psql -c "SHOW listen_addresses;"
    ```
 
+## 2.1 替代方案：RHEL 原生 PostgreSQL 13
+
+若 host B 不走離線 bundle，而是用 RHEL 9 AppStream `postgresql` 模組安裝的**原生 PostgreSQL 13**（`dnf install postgresql-server`），路徑、服務名與 initdb 指令都跟 §2 的 PG18 不同：
+
+| 項目 | bundle PG18（§2） | RHEL 原生 PG13 |
+|---|---|---|
+| 服務名 | `postgresql-18` | `postgresql` |
+| datadir | `/var/lib/pgsql/18/data` | `/var/lib/pgsql/data` |
+| initdb | `postgresql-18-setup initdb` | `postgresql-setup --initdb` |
+| psql | `/usr/pgsql-18/bin/psql` | `psql`（已在 PATH） |
+| `password_encryption` | scram-sha-256（預設） | **md5（預設）→ 必須手動改成 scram-sha-256** |
+| pgvector | `pgvector_18` RPM 內含 | 無（原生套件庫沒有） |
+
+> **關鍵差異**：PG13 的 `password_encryption` 預設是 `md5`，不改的話 `pg_hba.conf` 寫 `scram-sha-256` 會驗證失敗連不上。必須先改 `postgresql.conf` → restart → **之後**才建角色密碼，密碼才會用 scram 雜湊存。
+
+```bash
+# 0. 若尚未初始化 datadir（已在跑可跳過）
+sudo dnf install -y postgresql-server postgresql-contrib
+sudo postgresql-setup --initdb
+sudo systemctl enable --now postgresql
+
+# 1. 改 postgresql.conf（listen_addresses + password_encryption）
+sudo cp /var/lib/pgsql/data/postgresql.conf /var/lib/pgsql/data/postgresql.conf.bak
+sudo sed -i "s/^#\?listen_addresses\s*=.*/listen_addresses = 'localhost,<host_b_internal_ip>'/" \
+  /var/lib/pgsql/data/postgresql.conf
+sudo sed -i "s/^#\?password_encryption\s*=.*/password_encryption = scram-sha-256/" \
+  /var/lib/pgsql/data/postgresql.conf
+sudo grep -nE "^(listen_addresses|password_encryption)" /var/lib/pgsql/data/postgresql.conf
+
+# 2. 改 pg_hba.conf（只允許 n8n host）
+sudo cp /var/lib/pgsql/data/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf.bak
+echo "host  n8n  n8n  <n8n_host_ip>/32  scram-sha-256" | sudo tee -a /var/lib/pgsql/data/pg_hba.conf
+
+# 3. firewalld 開放 5432 給 n8n host（bundle 腳本會自動做，原生手動安裝要自己補）
+sudo firewall-cmd --permanent \
+  --add-rich-rule='rule family="ipv4" source address="<n8n_host_ip>/32" port port="5432" protocol="tcp" accept'
+sudo firewall-cmd --reload
+
+# 4. 重啟套用設定
+sudo systemctl restart postgresql
+sudo systemctl status postgresql --no-pager | head -10
+
+# 5. 建 n8n 角色 / 密碼 / 資料庫（restart 後才做，密碼才會 scram 雜湊）
+sudo -u postgres psql -c "CREATE ROLE n8n LOGIN;"
+sudo -u postgres psql -c "\password n8n"            # 互動輸入，避免進 shell history
+sudo -u postgres createdb --owner=n8n n8n
+
+# 6. 驗證
+ss -ltn | grep 5432                                  # 應見 127.0.0.1:5432 與 <host_b_internal_ip>:5432
+sudo -u postgres psql -c "SHOW listen_addresses;"
+sudo -u postgres psql -c "SHOW password_encryption;"  # scram-sha-256
+```
+
+> n8n host 還沒確定 IP 時，`<n8n_host_ip>/32` 可暫填整個子網段（如 `10.46.171.0/24`），日後再收窄成 `/32` 並 `systemctl reload postgresql`。
+>
+> 此路徑**不含 pgvector**（原生套件庫沒有，n8n 核心功能也不需要）。日後若要用 n8n 的 Postgres 向量儲存節點，需另從 PGDG 取 `pgvector_13` 或自行編譯。
+>
+> host A 的安裝（§3）完全不變 —— `install-offline.sh` 只透過 `DB_POSTGRESDB_*` 環境變數連線，與 PostgreSQL 版本無關。
+
 ## 3. 離線 host A：安裝 n8n
 
 把 `dist/n8n-offline-rhel9.6-x86_64/` 拷貝到 RHEL 9 host A，提供必填環境變數後執行：
@@ -707,7 +705,7 @@ sudo N8N_DB_HOST='<host_b_ip>' \
 ./verify-offline.sh --bundle-dir dist/n8n-offline-rhel9.6-x86_64
 ```
 
-機制：建立 `docker network create --internal`（無 internet 出口）→ `postgres:18` 容器 + `ubi9` 容器互連 → `ubi9` 內 mount bundle 跑 `install-offline.sh --verify-no-systemd`，模擬 host A 連到外部 PG。
+機制：建立 `docker network create --internal`（無 internet 出口）→ `postgres:18` 容器 + UBI 9.6 容器互連 → UBI 9.6 內 mount bundle 跑 `install-offline.sh --verify-no-systemd`，模擬 host A 連到外部 PG。
 
 注意：兩個映像必須**事先**已經 pull 到本地（腳本會處理），internal 網路內無法 pull。
 
@@ -719,7 +717,7 @@ sudo N8N_DB_HOST='<host_b_ip>' \
 ./verify-offline-full.sh
 ```
 
-兩個 ubi9 容器，一個跑 `install-pg-offline.sh --verify-no-systemd`，另一個跑 `install-offline.sh --verify-no-systemd`，同 internal 網路互連。
+兩個 UBI 9.6 容器，一個跑 `install-pg-offline.sh --verify-no-systemd`，另一個跑 `install-offline.sh --verify-no-systemd`，同 internal 網路互連。
 
 ## 5. 在 Docker 上實際運行（開發或試用）
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end verifier for both n8n and PostgreSQL offline bundles.
-# Uses an internal Docker network with two ubi9 containers:
+# Uses an internal Docker network with two UBI 9.6 containers:
 #   - PG host: mounts the PG bundle and runs install-pg-offline.sh --verify-no-systemd.
 #   - n8n host: mounts the n8n bundle and runs install-offline.sh --verify-no-systemd.
 # This simulates two offline RHEL 9 hosts where n8n connects to external PG.
@@ -18,8 +18,9 @@ N8N_BUNDLE="${DEFAULT_N8N_BUNDLE}"
 PG_BUNDLE="${DEFAULT_PG_BUNDLE}"
 
 # Test image and platform.
-RHEL_IMAGE="registry.access.redhat.com/ubi9/ubi"
-DOCKER_PLATFORM="linux/amd64"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
 # Internal Docker network and container names. Include the PID to avoid clashes.
 NETWORK_NAME="n8n-full-verify-$$"
@@ -73,9 +74,9 @@ parse_args() {
   PG_BUNDLE="$(cd "$PG_BUNDLE" && pwd)"
 }
 
-# Ensure the ubi9 Docker image is available locally.
+# Ensure the UBI Docker image is available locally.
 ensure_image() {
-  log "Ensuring the ubi9 image is available locally..."
+  log "Ensuring the UBI ${TARGET_RHEL_MINOR} image is available locally..."
   docker pull --platform "$DOCKER_PLATFORM" "$RHEL_IMAGE"
 }
 

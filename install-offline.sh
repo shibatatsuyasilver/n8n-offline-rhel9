@@ -106,6 +106,25 @@ load_manifest() {
   source "$manifest"
 }
 
+# Reject bundles that contain RPMs known to drift away from the RHEL 9.6 target.
+validate_rpm_manifest() {
+  local rpm_manifest="${BUNDLE_DIR}/${RPM_PACKAGES_MANIFEST:-rpm-packages.tsv}"
+  [[ -s "$rpm_manifest" ]] || die "RPM package manifest not found: $rpm_manifest"
+
+  if grep -Eq '(el9_7|rhel9\.7)' "$rpm_manifest"; then
+    grep -E '(el9_7|rhel9\.7)' "$rpm_manifest" >&2 || true
+    die "Bundle contains RHEL/Rocky 9.7 RPMs; rebuild it for RHEL ${TARGET_RHEL_MINOR:-9.6}"
+  fi
+
+  if awk -F'\t' 'NR > 1 && $1 ~ /^(rocky-release|rocky-repos|rocky-gpg-keys|rocky-logos.*)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$rpm_manifest" >&2; then
+    die "Bundle contains Rocky release identity packages; refusing to alter this host release identity"
+  fi
+
+  if awk -F'\t' 'NR > 1 && $1 ~ /^(openssh|openssh-clients|openssh-server)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$rpm_manifest" >&2; then
+    die "Bundle contains OpenSSH packages; refusing to risk SSH service compatibility"
+  fi
+}
+
 # Check OS, architecture, systemd availability, and bundle integrity before install.
 preflight() {
   log "Running preflight checks..."
@@ -122,6 +141,10 @@ preflight() {
   local major_version="${VERSION_ID%%.*}"
   [[ "$major_version" == "$TARGET_VERSION_ID" ]] || die "Expected RHEL major version ${TARGET_VERSION_ID}, got ${VERSION_ID:-unknown}"
 
+  if [[ -n "${TARGET_RHEL_MINOR:-}" ]]; then
+    [[ "${VERSION_ID:-}" == "$TARGET_RHEL_MINOR"* ]] || die "Expected RHEL minor version ${TARGET_RHEL_MINOR}, got ${VERSION_ID:-unknown}"
+  fi
+
   # Verify CPU architecture.
   [[ "$(uname -m)" == "$TARGET_ARCH" ]] || die "Expected architecture ${TARGET_ARCH}, got $(uname -m)"
 
@@ -133,6 +156,7 @@ preflight() {
 
   # Verify the local RPM repository and all bundle checksums.
   [[ -d "${BUNDLE_DIR}/${RPM_REPO_DIR}" ]] || die "RPM repository directory not found"
+  validate_rpm_manifest
   log "Verifying bundle checksums..."
   ( cd "$BUNDLE_DIR"; sha256sum -c SHA256SUMS )
 }
@@ -153,7 +177,13 @@ REPO
 
   # Read the package seed list from the manifest and install offline.
   read -r -a seed_packages <<< "$DNF_SEED_PACKAGES"
-  dnf --disablerepo="*" --enablerepo="n8n-offline" install -y --allowerasing "${seed_packages[@]}"
+  # No --allowerasing: a dependency conflict must fail loudly instead of
+  # silently erasing host packages such as openssh-server (which would
+  # remove sshd). install_weak_deps=False stops git from pulling openssh.
+  dnf --disablerepo="*" --enablerepo="n8n-offline" install -y \
+    --setopt=install_weak_deps=False \
+    --setopt=allow_vendor_change=False \
+    "${seed_packages[@]}"
 }
 
 # Extract Node.js under /opt and expose global executables through /usr/local/bin.

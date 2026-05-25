@@ -14,8 +14,9 @@ N8N_BUNDLE="${N8N_BUNDLE:-${SCRIPT_DIR}/dist/n8n-offline-rhel9.6-x86_64}"
 PG_BUNDLE="${PG_BUNDLE:-${SCRIPT_DIR}/dist/postgres-offline-rhel9-x86_64}"
 
 # Container base image and platform.
-RHEL_IMAGE="registry.access.redhat.com/ubi9/ubi"
-DOCKER_PLATFORM="linux/amd64"
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
 # Docker network, container names, and data volume names.
 NETWORK_NAME="n8n-stack"

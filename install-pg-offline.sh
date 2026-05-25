@@ -65,6 +65,21 @@ load_manifest() {
   PG_BIN="/usr/pgsql-${PG_MAJOR}/bin"
 }
 
+# Reject bundles that contain RPMs known to drift away from the RHEL 9.6 target.
+validate_rpm_manifest() {
+  local rpm_manifest="${BUNDLE_DIR}/${RPM_PACKAGES_MANIFEST:-rpm-packages.tsv}"
+  [[ -s "$rpm_manifest" ]] || die "RPM package manifest not found: $rpm_manifest"
+
+  if grep -Eq '(el9_7|rhel9\.7)' "$rpm_manifest"; then
+    grep -E '(el9_7|rhel9\.7)' "$rpm_manifest" >&2 || true
+    die "Bundle contains RHEL/Rocky 9.7 RPMs; rebuild it for RHEL ${TARGET_RHEL_MINOR:-9.6}"
+  fi
+
+  if awk -F'\t' 'NR > 1 && $1 ~ /^(rocky-release|rocky-repos|rocky-gpg-keys|rocky-logos.*)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$rpm_manifest" >&2; then
+    die "Bundle contains Rocky release identity packages; refusing to alter this host release identity"
+  fi
+}
+
 # Check OS, architecture, systemd availability, and bundle integrity before install.
 preflight() {
   log "Running preflight checks..."
@@ -81,6 +96,10 @@ preflight() {
   local major_version="${VERSION_ID%%.*}"
   [[ "$major_version" == "$TARGET_VERSION_ID" ]] || die "Expected RHEL major version ${TARGET_VERSION_ID}, got ${VERSION_ID:-unknown}"
 
+  if [[ -n "${TARGET_RHEL_MINOR:-}" ]]; then
+    [[ "${VERSION_ID:-}" == "$TARGET_RHEL_MINOR"* ]] || die "Expected RHEL minor version ${TARGET_RHEL_MINOR}, got ${VERSION_ID:-unknown}"
+  fi
+
   # Verify CPU architecture.
   [[ "$(uname -m)" == "$TARGET_ARCH" ]] || die "Expected architecture ${TARGET_ARCH}, got $(uname -m)"
 
@@ -92,6 +111,7 @@ preflight() {
 
   # Verify the local RPM repository and all bundle checksums.
   [[ -d "${BUNDLE_DIR}/${RPM_REPO_DIR}" ]] || die "RPM repository directory not found"
+  validate_rpm_manifest
   log "Verifying bundle checksums..."
   ( cd "$BUNDLE_DIR"; sha256sum -c SHA256SUMS )
 }
@@ -107,8 +127,11 @@ enabled=1
 gpgcheck=0
 REPO
 
-  # Disable every other repository so the install remains offline.
-  dnf --disablerepo='*' --enablerepo='postgres-offline' install -y --allowerasing \
+  # Disable every other repository so the install remains offline. Avoid
+  # --allowerasing so dependency conflicts cannot remove host SSH packages.
+  dnf --disablerepo='*' --enablerepo='postgres-offline' install -y \
+    --setopt=install_weak_deps=False \
+    --setopt=allow_vendor_change=False \
     "postgresql${PG_MAJOR}-server" \
     "postgresql${PG_MAJOR}-contrib" \
     "postgresql${PG_MAJOR}" \

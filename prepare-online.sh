@@ -9,16 +9,17 @@ set -Eeuo pipefail
 # Resolve the absolute directory that contains this script.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Configure the output bundle name and directory.
-BUNDLE_NAME="n8n-offline-rhel9.6-x86_64"
+# Configure the target RHEL minor release and output bundle name.
+TARGET_RHEL_MINOR="${TARGET_RHEL_MINOR:-9.6}"
+BUNDLE_NAME="${BUNDLE_NAME:-n8n-offline-rhel${TARGET_RHEL_MINOR}-x86_64}"
 DIST_ROOT="${DIST_ROOT:-${SCRIPT_DIR}/dist}"
 BUNDLE_DIR="${BUNDLE_DIR:-${DIST_ROOT}/${BUNDLE_NAME}}"
 
-# Use Rocky Linux 9 as the preparation container image. It is binary compatible
-# with RHEL 9 and includes createrepo_c through AppStream without a subscription.
-# The resulting RPMs remain compatible with RHEL 9, UBI 9, Alma 9, and Rocky 9.
-RHEL_IMAGE="rockylinux:9"
-DOCKER_PLATFORM="linux/amd64"
+# Pin the preparation container and RPM source repos to the target minor release.
+# Floating rockylinux:9 can roll forward to newer minor RPMs such as el9_7.
+RHEL_IMAGE="${RHEL_IMAGE:-registry.access.redhat.com/ubi9/ubi:${TARGET_RHEL_MINOR}}"
+ROCKY_VAULT_BASE="${ROCKY_VAULT_BASE:-https://download.rockylinux.org/vault/rocky/${TARGET_RHEL_MINOR}}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
 
 # Node.js version and download metadata.
 NODE_VERSION="v22.22.2"
@@ -36,9 +37,8 @@ N8N_PREFIX_TARBALL="n8n-prefix-${N8N_VERSION}-node-${NODE_VERSION}-rhel9-x86_64.
 DNF_SEED_PACKAGES=(
   ca-certificates
   tzdata
-  curl
+  curl-minimal
   openssl
-  git
   GraphicsMagick
   fontconfig
   xz
@@ -60,6 +60,11 @@ Options:
   --keep-existing       Keep the existing bundle directory instead of rebuilding it.
   --reuse-n8n-prefix    Reuse an existing n8n tarball and npm package manifest.
   -h, --help            Show this help message.
+
+Environment variables:
+  TARGET_RHEL_MINOR     Target RHEL minor release. Defaults to 9.6.
+  RHEL_IMAGE            Preparation/test image. Defaults to UBI for TARGET_RHEL_MINOR.
+  ROCKY_VAULT_BASE      Rocky vault base URL. Defaults to Rocky TARGET_RHEL_MINOR.
 USAGE
 }
 
@@ -84,6 +89,25 @@ write_sha256_line() {
 verify_sha256() {
   local actual; actual="$(sha256_file "$2")"
   [[ "$actual" == "$1" ]] || die "$2 checksum mismatch: expected $1, got $actual"
+}
+
+# Reject RPM sets that would drift away from the target RHEL 9.6 runtime.
+validate_rpm_manifest() {
+  local manifest="${BUNDLE_DIR}/rpm-packages.tsv"
+  [[ -s "$manifest" ]] || die "RPM package manifest not found: $manifest"
+
+  if grep -Eq '(el9_7|rhel9\.7)' "$manifest"; then
+    grep -E '(el9_7|rhel9\.7)' "$manifest" >&2 || true
+    die "RPM manifest contains RHEL/Rocky 9.7 packages; rebuild with target ${TARGET_RHEL_MINOR} repos"
+  fi
+
+  if awk -F'\t' 'NR > 1 && $1 ~ /^(rocky-release|rocky-repos|rocky-gpg-keys|rocky-logos.*)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$manifest" >&2; then
+    die "RPM manifest contains Rocky release identity packages; RHEL hosts must keep their own release packages"
+  fi
+
+  if awk -F'\t' 'NR > 1 && $1 ~ /^(openssh|openssh-clients|openssh-server)$/ { print; found=1 } END { exit found ? 0 : 1 }' "$manifest" >&2; then
+    die "RPM manifest contains OpenSSH packages; do not bundle SSH client/server packages for the n8n host"
+  fi
 }
 
 # Parse command-line arguments.
@@ -137,18 +161,44 @@ download_node() {
 
 # Use Docker to download required RPMs and create the local repository metadata.
 build_dnf_repo() {
-  log "Downloading RHEL-compatible dnf dependencies into the local repository..."
+  log "Downloading RHEL ${TARGET_RHEL_MINOR}-compatible dnf dependencies into the local repository..."
 
-  docker run --rm -i --platform "$DOCKER_PLATFORM" -v "${BUNDLE_DIR}:/bundle" "$RHEL_IMAGE" bash -s -- "${DNF_SEED_PACKAGES[@]}" <<'IN_CONTAINER'
+  docker run --rm -i --platform "$DOCKER_PLATFORM" \
+    -v "${BUNDLE_DIR}:/bundle" \
+    -e ROCKY_VAULT_BASE="$ROCKY_VAULT_BASE" \
+    "$RHEL_IMAGE" bash -s -- "${DNF_SEED_PACKAGES[@]}" <<'IN_CONTAINER'
 set -Eeuo pipefail
 
 seed_packages=("$@")
 
-# Rocky 9 enables BaseOS, AppStream, and extras by default. createrepo_c is in
-# AppStream; GraphicsMagick is in EPEL, so enable EPEL as well.
-dnf install -y dnf-plugins-core
-dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm"
-dnf install -y createrepo_c
+cat > /etc/yum.repos.d/rhel-minor-compat.repo <<REPO
+[rocky-baseos]
+name=Rocky target-minor BaseOS
+baseurl=${ROCKY_VAULT_BASE}/BaseOS/\$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rocky-appstream]
+name=Rocky target-minor AppStream
+baseurl=${ROCKY_VAULT_BASE}/AppStream/\$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rocky-crb]
+name=Rocky target-minor CRB
+baseurl=${ROCKY_VAULT_BASE}/CRB/\$basearch/os/
+enabled=1
+gpgcheck=0
+
+[epel-9]
+name=EPEL 9
+baseurl=https://dl.fedoraproject.org/pub/epel/9/Everything/\$basearch/
+enabled=1
+gpgcheck=0
+REPO
+
+dnf --disablerepo='*' --enablerepo='rocky-*' --enablerepo='epel-9' \
+  install -y dnf-plugins-core createrepo_c
 
 # Recreate the repository directory.
 rm -rf /bundle/rpm-repo
@@ -156,7 +206,18 @@ mkdir -p /bundle/rpm-repo
 
 cd /bundle/rpm-repo
 # Resolve and download all package dependencies into the current directory.
-dnf download --resolve --alldeps "${seed_packages[@]}"
+dnf --disablerepo='*' --enablerepo='rocky-*' --enablerepo='epel-9' \
+  --setopt=install_weak_deps=False \
+  --exclude='openssh*' \
+  download --resolve --alldeps "${seed_packages[@]}"
+
+# nginx-core requires a package that provides system-logos-httpd. Use UBI's
+# Red Hat provider so RHEL hosts do not install Rocky branding packages.
+dnf --disablerepo='*' --enablerepo='ubi-9-appstream-rpms' \
+  download --destdir /bundle/rpm-repo redhat-logos-httpd
+
+# RHEL hosts already provide their own release identity packages.
+rm -f rocky-gpg-keys-*.rpm rocky-release-*.rpm rocky-repos-*.rpm rocky-logos-*.rpm
 
 # Generate dnf repository metadata.
 createrepo_c .
@@ -188,12 +249,37 @@ build_n8n_prefix() {
   fi
 
   rm -f "${BUNDLE_DIR}/${N8N_PREFIX_TARBALL}" "${BUNDLE_DIR}/npm-packages.json"
-  docker run --rm -i --platform "$DOCKER_PLATFORM" -v "${BUNDLE_DIR}:/bundle" "$RHEL_IMAGE" bash -s -- "$NODE_TARBALL" "$NODE_DIST" "$N8N_VERSION" "$N8N_PREFIX_TARBALL" <<'IN_CONTAINER'
+  docker run --rm -i --platform "$DOCKER_PLATFORM" \
+    -v "${BUNDLE_DIR}:/bundle" \
+    -e ROCKY_VAULT_BASE="$ROCKY_VAULT_BASE" \
+    "$RHEL_IMAGE" bash -s -- "$NODE_TARBALL" "$NODE_DIST" "$N8N_VERSION" "$N8N_PREFIX_TARBALL" <<'IN_CONTAINER'
 set -Eeuo pipefail
 node_tarball="$1"; node_dist="$2"; n8n_version="$3"; n8n_prefix_tarball="$4"
 
+cat > /etc/yum.repos.d/rhel-minor-compat.repo <<REPO
+[rocky-baseos]
+name=Rocky target-minor BaseOS
+baseurl=${ROCKY_VAULT_BASE}/BaseOS/\$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rocky-appstream]
+name=Rocky target-minor AppStream
+baseurl=${ROCKY_VAULT_BASE}/AppStream/\$basearch/os/
+enabled=1
+gpgcheck=0
+
+[rocky-crb]
+name=Rocky target-minor CRB
+baseurl=${ROCKY_VAULT_BASE}/CRB/\$basearch/os/
+enabled=1
+gpgcheck=0
+REPO
+
 # Install build tools needed by npm modules.
-dnf install -y --allowerasing make gcc-c++ python3 xz tar curl
+dnf --disablerepo='*' --enablerepo='rocky-*' \
+  --setopt=install_weak_deps=False \
+  install -y make gcc-c++ python3 xz tar
 
 # Extract Node.js and configure PATH.
 tar -xJf "/bundle/${node_tarball}" -C /opt
@@ -215,14 +301,18 @@ IN_CONTAINER
 
 # Write manifest.env with bundle metadata and build parameters.
 write_manifest() {
-  local created_at; created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  local created_at target_major
+  created_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  target_major="${TARGET_RHEL_MINOR%%.*}"
   cat > "${BUNDLE_DIR}/manifest.env" <<MANIFEST
 BUNDLE_NAME='${BUNDLE_NAME}'
 TARGET_OS_ID='rhel'
-TARGET_VERSION_ID='9'
+TARGET_VERSION_ID='${target_major}'
+TARGET_RHEL_MINOR='${TARGET_RHEL_MINOR}'
 TARGET_ARCH='x86_64'
 DOCKER_PREP_IMAGE='${RHEL_IMAGE}'
 DOCKER_PLATFORM='${DOCKER_PLATFORM}'
+ROCKY_VAULT_BASE='${ROCKY_VAULT_BASE}'
 NODE_VERSION='${NODE_VERSION}'
 NODE_DIST='${NODE_DIST}'
 NODE_TARBALL='${NODE_TARBALL}'
@@ -272,6 +362,7 @@ main() {
   prepare_bundle_dir
   download_node
   build_dnf_repo
+  validate_rpm_manifest
   build_n8n_prefix
   write_manifest
   write_checksums
