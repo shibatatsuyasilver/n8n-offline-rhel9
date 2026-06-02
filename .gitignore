@@ -2,3 +2,4 @@ dist/
 .work/
 .DS_Store
 .stack-env
+pg18-compat-rpms/
